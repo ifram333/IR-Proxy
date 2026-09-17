@@ -1,0 +1,1645 @@
+/* ================================================================
+   IR Proxy — Dashboard Styles
+   ================================================================ */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+
+:root {
+  --primary: #3b82f6;
+  --primary-dark: #60a5fa;
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --bg: #0f172a;
+  --card-bg: #1e293b;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --border: #334155;
+  --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
+  /* Monokai's own background, for the Ace mount points to wear while Ace's
+     theme is still loading — see the note on #code-editor. It belongs to the
+     theme, not to this palette, so it changes with the `ace/theme/monokai` in
+     editor.js and request-editor.js, not with the colours above. */
+  --ace-bg: #272822;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  font-family:
+    "Inter",
+    system-ui,
+    -apple-system,
+    sans-serif;
+  background-color: var(--bg);
+  color: var(--text-main);
+  margin: 0;
+  padding: 0;
+  line-height: 1.5;
+}
+/* Freeze background scroll while a full-screen modal (editor / log detail) is
+   open. Toggled from JS via syncScrollLock(). */
+body.modal-open {
+  overflow: hidden;
+}
+
+.layout-container {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+/* ── Header ────────────────────────────────────────────────────── */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 16px;
+}
+.brand h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  align-items: center;
+  color: var(--text-main);
+}
+.brand h1 span {
+  color: var(--primary);
+}
+.brand p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.health-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  background: #0f172a;
+  border: 1px solid var(--border);
+  padding: 6px 14px;
+  border-radius: 20px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+/* Sits next to the health badge and borrows its shape, but is a button — it
+   toggles recording. Quiet by default: the number only matters when it's big. */
+.log-stats {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  background: #0f172a;
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  border-radius: 20px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.log-stats:hover {
+  border-color: var(--text-muted);
+  color: var(--text-main);
+}
+.log-stats.warn {
+  color: #fbbf24;
+  border-color: #b45309;
+}
+.log-stats.paused {
+  color: #93c5fd;
+  border-color: #1d4ed8;
+}
+.health-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+  flex-shrink: 0;
+  box-shadow: 0 0 6px var(--success);
+}
+.health-dot.offline {
+  background: var(--danger);
+  box-shadow: 0 0 6px var(--danger);
+}
+
+/* ── Proxy Status Banner ─────────────────────────────────────────── */
+.proxy-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  padding: 6px 14px;
+  border-radius: 20px;
+  color: var(--primary-dark);
+  white-space: nowrap;
+  font-family: monospace;
+}
+.proxy-status-badge .proxy-icon {
+  font-style: normal;
+}
+
+/* ── Standalone instances toggle ─────────────────────────────────── */
+.standalone-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #0f172a;
+  border: 1px solid var(--border);
+  padding: 5px 12px;
+  border-radius: 20px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.standalone-toggle .st-label {
+  letter-spacing: 0.02em;
+}
+
+/* ── Certificate Download Button ──────────────────────────────── */
+.cert-btn-wrapper {
+  position: relative;
+}
+.cert-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid rgba(99, 102, 241, 0.5);
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+  transition: 0.2s;
+  font-family: inherit;
+  white-space: nowrap;
+  min-height: 44px;
+}
+.cert-btn:hover {
+  background: rgba(99, 102, 241, 0.25);
+  border-color: #6366f1;
+  color: #c7d2fe;
+}
+.cert-btn .cert-platform-icon {
+  font-size: 14px;
+}
+.cert-btn .cert-arrow {
+  font-size: 10px;
+  opacity: 0.7;
+  margin-left: 2px;
+  transition: transform 0.2s;
+}
+.cert-btn-wrapper.open .cert-arrow {
+  transform: rotate(180deg);
+}
+
+.cert-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  min-width: 260px;
+  z-index: 500;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+.cert-btn-wrapper.open .cert-dropdown {
+  display: block;
+}
+
+.cert-dropdown-header {
+  padding: 10px 14px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
+}
+.cert-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--text-main);
+  font-size: 13px;
+  transition: background 0.15s;
+}
+.cert-dropdown-item:hover {
+  background: #334155;
+}
+.cert-dropdown-item .di-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.cert-dropdown-item .di-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.cert-dropdown-item .di-label {
+  font-weight: 600;
+  font-size: 13px;
+}
+.cert-dropdown-item .di-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+.cert-dropdown-item.primary {
+  background: rgba(99, 102, 241, 0.1);
+}
+.cert-dropdown-item.primary .di-label {
+  color: #a5b4fc;
+}
+.cert-dropdown-item.primary:hover {
+  background: rgba(99, 102, 241, 0.2);
+}
+.cert-dropdown-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+.cert-dropdown-guide {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  transition: 0.15s;
+}
+.cert-dropdown-guide:hover {
+  background: #334155;
+  color: var(--text-main);
+}
+
+.profile-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  background: #0f172a;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 12px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.profile-chip:hover {
+  border-color: var(--primary);
+}
+.profile-chip .p-load {
+  padding: 4px 10px;
+  cursor: pointer;
+  color: var(--primary-dark);
+  font-weight: 600;
+  background: none;
+  border: none;
+  font-size: 12px;
+}
+.profile-chip .p-load:hover {
+  text-decoration: underline;
+}
+.profile-chip .p-del {
+  padding: 4px 8px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  border-left: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.profile-chip .p-del:hover {
+  color: var(--danger);
+  background: #450a0a44;
+}
+.no-profiles {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-style: italic;
+}
+
+/* ── Toolbar ────────────────────────────────────────────────────── */
+.toolbar {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 20px;
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow);
+}
+.search-box {
+  position: relative;
+  flex-grow: 1;
+  min-width: 200px;
+}
+.search-box input {
+  width: 100%;
+  padding: 10px 16px 10px 40px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  outline: none;
+  font-size: 14px;
+  background: #0f172a;
+  color: var(--text-main);
+}
+.search-box input:focus {
+  border-color: var(--primary);
+}
+.search-box::before {
+  content: "🔍";
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  opacity: 0.5;
+}
+#results-count {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Mock Matrix ────────────────────────────────────────────────── */
+.matrix-container {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+th {
+  background: #1e293b;
+  padding: 14px 20px;
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  color: var(--text-muted);
+  border-bottom: 2px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+td {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.folder-header {
+  background: #0f172a;
+}
+.folder-header td {
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.folder-header-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.folder-label {
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.folder-header.drag-over {
+  background-color: #1e3a8a;
+  outline: 2px dashed var(--primary);
+  outline-offset: -2px;
+}
+
+.mock-row:hover {
+  background-color: #334155;
+}
+.mock-row.dragging {
+  opacity: 0.4;
+  background-color: #475569;
+}
+
+.mock-meta h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.mock-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.file-link {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-decoration: none;
+  background: #0f172a;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: 0.2s;
+}
+.file-link:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+/* ── Badges ─────────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+.badge-conflict {
+  background: rgba(127, 29, 29, 0.3);
+  color: #fca5a5;
+  border: 1px solid #7f1d1d;
+}
+.badge-delay {
+  background: rgba(120, 53, 15, 0.3);
+  color: #fcd34d;
+  border: 1px solid #78350f;
+}
+
+/* ── Switches ───────────────────────────────────────────────────── */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+}
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: #475569;
+  transition: 0.2s;
+  border-radius: 20px;
+}
+.slider::before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.2s;
+  border-radius: 50%;
+}
+input:checked + .slider {
+  background-color: var(--primary);
+}
+.power-switch input:checked + .slider {
+  background-color: var(--success);
+}
+input:checked + .slider::before {
+  transform: translateX(16px);
+}
+
+.inst-col {
+  text-align: center;
+  border-left: 1px solid var(--border);
+  width: 120px;
+}
+.active-col {
+  background-color: #1e293b;
+}
+/* Toggle cell for a powered-off instance (dimmed; controlled by class so the
+   responsive card layout can adjust it). */
+.inst-col.inst-off {
+  opacity: 0.15;
+}
+
+/* Toggle and hit count side by side. The count reserves its width whether or
+   not there is a number, so the switches stay in a straight line down the
+   column — a grid that jitters per row is harder to scan than a wide one. */
+.inst-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.hit-count {
+  min-width: 22px;
+  text-align: left;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: #4ade80;
+}
+/* On, in scope, and never answered anything. The state worth spotting, so it
+   reads as absence rather than as a zero that could be mistaken for a count. */
+.hit-count.none {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+.hit-count.blank {
+  visibility: hidden;
+}
+
+/* Sticky first column: keep the mock name visible while the server toggle
+   columns scroll horizontally (the key usability win on mobile). */
+.matrix-container th:first-child,
+.mock-row td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  background: var(--card-bg);
+  border-right: 1px solid var(--border);
+}
+.matrix-container th:first-child {
+  z-index: 15;
+  background: #1e293b;
+}
+.mock-row:hover td:first-child {
+  background-color: #334155;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────── */
+.btn {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: 0.2s;
+  font-family: inherit;
+  min-height: 44px;
+}
+.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+.btn-primary:hover {
+  background: var(--primary-dark);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--text-muted);
+}
+.btn-ghost:hover {
+  background: #334155;
+  color: var(--text-main);
+}
+.btn-danger-text {
+  color: var(--danger);
+  padding: 4px 8px;
+}
+.btn-danger-text:hover {
+  background: #450a0a;
+  color: #fca5a5;
+}
+.btn-sm {
+  font-size: 10px;
+  padding: 2px 6px;
+  min-height: unset;
+}
+
+/* ── Editor Modal ───────────────────────────────────────────────── */
+#editor-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 1000;
+  backdrop-filter: blur(8px);
+  align-items: center;
+  justify-content: center;
+}
+.modal-content {
+  background: var(--card-bg);
+  width: 90%;
+  height: 85%;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.modal-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+#code-editor {
+  flex-grow: 1;
+  /* Ace loads lazily, and its *theme* is a second module that lands about a
+     second after the core — so between the editor appearing and monokai
+     arriving, Ace paints in its default light theme: a full-height white flash
+     inside a dark modal. Wearing monokai's background from the start makes the
+     un-themed window look like the themed one. */
+  background: var(--ace-bg);
+}
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* ── Modal stacking order ───────────────────────────────────────────
+   One ladder, in one place, because equal z-indexes fall back to DOM order —
+   which is how "Revoke all" ended up opening its confirm *underneath* the
+   devices modal that spawned it.
+
+     1000  editor          ┐
+     1400  replay          │ base layers: opened from the page
+     1500  install guide   │
+     1900  shortcuts       │
+     2000  scope, clients  ┘
+     2100  prompt          opened from a base layer
+     2200  access          a security decision shouldn't be buried
+     2300  confirm         always reachable: it answers a click made above
+
+   Above the band and deliberately outside it: .ctx-menu (2500),
+   .narrow-gate (3000), #toast-container (9999).
+   ───────────────────────────────────────────────────────────────── */
+
+/* ── Confirm Modal ──────────────────────────────────────────────── */
+#confirm-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  /* Top of the modal band: every other modal can open one of these, so it can
+     never be the thing sitting underneath. */
+  z-index: 2300;
+  backdrop-filter: blur(4px);
+  align-items: center;
+  justify-content: center;
+}
+.confirm-box {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px 32px;
+  min-width: 340px;
+  box-shadow: 0 20px 40px -8px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.confirm-box p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* ── Approved Devices Modal ─────────────────────────────────────── */
+#clients-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  /* A base layer: "Revoke all" opens a confirm on top of this one. */
+  z-index: 2000;
+  backdrop-filter: blur(4px);
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.clients-box {
+  min-width: 400px;
+  max-width: 520px;
+  width: 100%;
+  gap: 14px;
+}
+.clients-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* Bounded: the list is normally short, but nothing stops a busy network from
+     filling it, and a modal that grows past the viewport can't be dismissed. */
+  max-height: 320px;
+  overflow-y: auto;
+}
+.clients-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+.clients-label {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.clients-ip {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text-main);
+}
+.clients-scope {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+/* The one that outlives the process, so it reads as the heavier of the two. */
+.clients-scope.durable {
+  color: #fbbf24;
+}
+.clients-empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.popover-badge:empty {
+  display: none;
+}
+.popover-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-main);
+  background: var(--border);
+  border-radius: 10px;
+}
+
+/* ── Prompt Modal ───────────────────────────────────────────────── */
+#prompt-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  /* Above the base layers because it is opened from them (the editor, a mock
+     row), below confirm because it can trigger one. */
+  z-index: 2100;
+  backdrop-filter: blur(4px);
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.prompt-box {
+  min-width: 380px;
+  max-width: 480px;
+  width: 100%;
+  gap: 14px;
+}
+.prompt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.prompt-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+#prompt-input {
+  padding: 9px 11px;
+  font: inherit;
+  font-size: 13px;
+  font-family: var(--mono);
+  color: var(--text-main);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+#prompt-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+/* Collapsed when empty so the dialog doesn't reserve a blank row for an error
+   that most of the time never appears. */
+.prompt-error:empty {
+  display: none;
+}
+.prompt-error {
+  margin: 0;
+  font-size: 12px;
+  color: #fca5a5;
+  line-height: 1.4;
+}
+/* Something worth saying that doesn't block — an overwrite, typically. */
+.prompt-error.warning {
+  color: #fbbf24;
+}
+#prompt-confirm:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ── Access Approval Modal ──────────────────────────────────────── */
+#access-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  /* Above the ordinary flow — a device waiting on a security decision shouldn't
+     end up behind a naming dialog — but below confirm, so an answer the user is
+     already halfway through giving stays on top. */
+  z-index: 2200;
+  backdrop-filter: blur(4px);
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.access-box {
+  min-width: 380px;
+  max-width: 460px;
+  width: 100%;
+  gap: 16px;
+  border-color: #b45309;
+}
+.access-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+.access-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.access-grid {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 14px;
+  margin: 0;
+  font-size: 13px;
+}
+.access-grid dt {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.access-grid dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--text-main);
+  overflow-wrap: anywhere;
+}
+.access-mono {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.access-ua {
+  /* A user-agent is long and nobody needs all of it at a glance; the full
+     string is on the title attribute. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.access-note:empty {
+  display: none;
+}
+.access-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.access-remember {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.access-remember input {
+  margin-top: 2px;
+  flex: none;
+}
+.access-remember small {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* ── Mock Scope Modal ───────────────────────────────────────────── */
+#scope-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 2000;
+  backdrop-filter: blur(4px);
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.scope-box {
+  min-width: 360px;
+  max-width: 440px;
+  width: 100%;
+  gap: 16px;
+}
+.scope-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-main);
+  word-break: break-word;
+}
+.scope-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.scope-server-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.scope-server-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #0f172a;
+  cursor: pointer;
+}
+.scope-server-item:hover {
+  border-color: var(--primary);
+}
+.scope-server-item input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.scope-server-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+.scope-server-id {
+  margin-left: auto;
+  font-size: 11px;
+  font-family: monospace;
+  color: var(--text-muted);
+}
+
+/* Per-row scope button + out-of-scope matrix cell */
+.scope-btn {
+  color: #a5b4fc !important;
+}
+.inst-col.not-applicable {
+  text-align: center;
+  color: var(--text-muted);
+  opacity: 0.4;
+  font-weight: 700;
+  user-select: none;
+}
+
+/* ── Install Guide Modal ────────────────────────────────────────── */
+#install-guide-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 1500;
+  backdrop-filter: blur(10px);
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.guide-modal-content {
+  background: var(--card-bg);
+  width: 100%;
+  max-width: 720px;
+  max-height: 90vh;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.guide-modal-header {
+  padding: 20px 24px 0;
+  flex-shrink: 0;
+}
+.guide-modal-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+.guide-modal-title {
+  font-size: 18px;
+  font-weight: 800;
+  margin: 0;
+}
+.guide-modal-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 4px 0 0;
+}
+.guide-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 22px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  transition: color 0.2s;
+  flex-shrink: 0;
+}
+.guide-close-btn:hover {
+  color: var(--text-main);
+}
+
+/* Platform tabs inside modal */
+.guide-platform-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+}
+.guide-platform-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-family: inherit;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: 0.2s;
+  white-space: nowrap;
+}
+.guide-platform-tab:hover {
+  color: var(--text-main);
+}
+.guide-platform-tab.active {
+  color: var(--primary-dark);
+  border-bottom-color: var(--primary);
+}
+
+.guide-modal-body {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 24px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.guide-modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+.guide-modal-body::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.guide-platform-panel {
+  display: none;
+}
+.guide-platform-panel.active {
+  display: block;
+}
+
+.guide-step-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.guide-step {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: #0f172a;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.guide-step-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  font-size: 11px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.guide-step-text {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+.guide-step-text strong {
+  color: var(--text-main);
+}
+.guide-step-text code {
+  background: #1e293b;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #a5b4fc;
+  font-family: monospace;
+}
+.guide-step-text pre {
+  background: #0a0e1a;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin: 8px 0 0;
+  overflow-x: auto;
+}
+.guide-step-text pre code {
+  background: none;
+  padding: 0;
+  color: #c4b5fd;
+  font-size: 12px;
+}
+
+.guide-warning {
+  gap: 10px;
+  align-items: flex-start;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: #fcd34d;
+  line-height: 1.5;
+}
+
+.guide-download-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.guide-dl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  transition: 0.2s;
+  border: 1px solid transparent;
+  font-family: inherit;
+  min-height: 44px;
+}
+.guide-dl-btn.primary {
+  background: var(--primary);
+  color: white;
+}
+.guide-dl-btn.primary:hover {
+  background: var(--primary-dark);
+}
+.guide-dl-btn.secondary {
+  background: #0f172a;
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+.guide-dl-btn.secondary:hover {
+  border-color: var(--primary);
+  color: var(--primary-dark);
+}
+
+.guide-proxy-info {
+  background: #0f172a;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 20px;
+}
+.guide-proxy-info h4 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.guide-proxy-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+}
+.guide-proxy-row:last-child {
+  border-bottom: none;
+}
+.guide-proxy-row .pr-label {
+  color: var(--text-muted);
+}
+.guide-proxy-row .pr-value {
+  font-family: monospace;
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+/* ── Toast Notifications ────────────────────────────────────────── */
+#toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  padding: 12px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 240px;
+  max-width: 380px;
+  animation: toastIn 0.3s ease forwards;
+  pointer-events: all;
+  border-left: 4px solid;
+}
+.toast.success {
+  background: #064e3b;
+  border-color: var(--success);
+}
+.toast.error {
+  background: #450a0a;
+  border-color: var(--danger);
+}
+.toast.info {
+  background: #1e3a8a;
+  border-color: var(--primary);
+}
+.toast.warning {
+  background: #78350f;
+  border-color: var(--warning);
+}
+.toast.fade-out {
+  animation: toastOut 0.4s ease forwards;
+}
+
+/* ── Animations ─────────────────────────────────────────────────── */
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes toastOut {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+}
+
+/* ── Responsive: Tablet (768px – 1024px) ───────────────────────── */
+
+/* ── Responsive: Phones (≤767px) ───────────────────────────────── */
+/* 767, not 768, so iPad portrait (exactly 768px) gets the tablet layout. */
+
+/* ── Safe area for notch devices ────────────────────────────────── */
+@supports (padding: env(safe-area-inset-bottom)) {
+  #toast-container {
+    bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+  .layout-container {
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  }
+}
+
+/* JSON tree */
+.jt-container {
+  margin-top: 8px;
+  font-family: monospace;
+  font-size: 12px;
+}
+.jt-node {
+  margin: 1px 0;
+}
+.jt-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 1px 2px;
+  border-radius: 3px;
+}
+.jt-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.jt-children {
+  margin-left: 18px;
+  border-left: 1px dashed rgba(255, 255, 255, 0.08);
+  padding-left: 8px;
+}
+.jt-node.collapsed > .jt-children {
+  display: none;
+}
+.jt-toggle,
+.jt-toggle-spacer {
+  width: 14px;
+  flex: 0 0 auto;
+}
+.jt-toggle {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  font-size: 10px;
+  transition: transform 0.15s;
+}
+.jt-node.collapsed > .jt-row > .jt-toggle {
+  transform: rotate(-90deg);
+}
+.jt-key {
+  color: #c4b5fd;
+}
+.jt-colon {
+  color: var(--text-muted);
+}
+.jt-summary {
+  color: var(--text-muted);
+  font-style: italic;
+}
+.jt-type-string {
+  color: #86efac;
+}
+.jt-type-number {
+  color: #93c5fd;
+}
+.jt-type-boolean {
+  color: #fca5a5;
+}
+.jt-type-null {
+  color: #64748b;
+  font-style: italic;
+}
+.jt-copy-btn {
+  opacity: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0 4px;
+}
+.jt-row:hover .jt-copy-btn,
+.jt-row:focus-within .jt-copy-btn {
+  opacity: 1;
+}
+.jt-copy-btn:hover {
+  color: var(--primary);
+}
+.jt-plain {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: monospace;
+  font-size: 11px;
+  color: #c4b5fd;
+}
+.jt-empty {
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 8px 0;
+  margin-top: 8px;
+}
+mark.jt-hit {
+  background: #78350f;
+  color: #fde68a;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+mark.jt-hit-current {
+  background: var(--warning);
+  color: #1e293b;
+}
+
+.log-detail-copy-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: 0.15s;
+  min-height: unset !important;
+}
+.log-detail-copy-btn:hover {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.log-detail-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  background: #1e293b;
+  flex-shrink: 0;
+}
+
+/* ── Initial-load placeholders ──────────────────────────────────── */
+.loading-hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 20px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-style: italic;
+}
+.loading-hint::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Empty states ───────────────────────────────────────────────── */
+.log-empty-hint {
+  display: block;
+  margin-top: 6px;
+  font-style: normal;
+  font-size: 12px;
+}
+.log-empty-hint code {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+.empty-row td {
+  padding: 22px 20px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-style: italic;
+}
+.empty-row button {
+  margin-left: 10px;
+}
+
+/* ── Keyboard shortcuts modal ───────────────────────────────────── */
+.shortcuts-btn {
+  padding: 8px 12px;
+  font-size: 15px;
+  line-height: 1;
+}
+#shortcuts-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1900; /* see the stacking ladder above #confirm-modal */
+  backdrop-filter: blur(4px);
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.shortcuts-box {
+  min-width: 340px;
+  max-width: 420px;
+  gap: 8px;
+}
+.shortcuts-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 6px 0 4px;
+}
+.shortcuts-table td {
+  padding: 8px 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+  border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+}
+.shortcuts-table tr:last-child td {
+  border-bottom: none;
+}
+.shortcuts-table td:first-child {
+  width: 120px;
+  color: var(--text-main);
+  white-space: nowrap;
+}
+kbd {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: 1px 7px;
+  font-family: monospace;
+  font-size: 12px;
+}

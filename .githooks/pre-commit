@@ -1,0 +1,25 @@
+#!/bin/sh
+# Revisa con Gitleaks lo que está en el índice y cancela el commit si encuentra
+# un secreto.
+#
+# El proxy captura tráfico real: un mock o un request guardado puede traer una
+# llave del servicio de origen. El .gitignore ya excluye esas carpetas y el
+# escaneo en GitHub avisa después del push; esto lo detiene antes de que salga
+# de tu máquina.
+#
+# Se activa solo al correr `npm install` (script `prepare` en package.json), o a
+# mano con: git config core.hooksPath .githooks
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+    echo "⚠️  gitleaks no está instalado: el commit va sin revisar."
+    echo "   Instálalo con 'brew install gitleaks' (o ver https://github.com/gitleaks/gitleaks)."
+    exit 0
+fi
+
+if ! gitleaks git --staged --redact --no-banner; then
+    echo
+    echo "🚫 Commit cancelado: Gitleaks encontró un posible secreto en los cambios."
+    echo "   Sácalo del índice y del archivo antes de volver a intentarlo."
+    echo "   Si es un falso positivo, añádelo a .gitleaksignore o usa 'git commit --no-verify'."
+    exit 1
+fi

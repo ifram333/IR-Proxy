@@ -1,0 +1,1638 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   app.css — the workspace shell: app bar, host tree, splitters, inspector.
+   Component styles that predate this layout (buttons, switches, modals, the
+   JSON tree, toasts) still live in dashboard.css and are loaded after this.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --primary: #3b82f6;
+  --primary-dark: #60a5fa;
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+
+  --bg: #0f172a;
+  --card-bg: #1e293b;
+  --panel-bg: #131c31;
+  --row-hover: #1e293b;
+  --row-selected: #1d4ed8;
+
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --border: #334155;
+
+  /* Pane sizes. Written by splitter.js and restored inline in <head>, so a
+     drag reflows the grid without any element being re-rendered. */
+  --pane-left: 340px;
+  --pane-hits: 34%;
+
+  --bar-height: 52px;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* The `hidden` attribute is how this UI shows and hides regions, but a `display`
+   declaration silently beats it — every flex/grid container below would ignore
+   it. Restore the attribute's meaning once, globally. */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden; /* the panes scroll, never the page */
+}
+
+body {
+  background: var(--bg);
+  color: var(--text-main);
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 13px;
+}
+
+/* While a splitter is being dragged, nothing else should react to the pointer
+   or start a text selection. */
+body.resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+body.resizing .pane,
+body.resizing iframe {
+  pointer-events: none;
+}
+
+/* ── App shell ──────────────────────────────────────────────────────────── */
+
+.app {
+  display: grid;
+  grid-template-rows: var(--bar-height) minmax(0, 1fr);
+  height: 100vh;
+}
+
+.app-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.app-logo {
+  font-size: 18px;
+}
+.app-title {
+  font-size: 15px;
+}
+.app-bar-spacer {
+  flex: 1;
+}
+
+/* ── Workspace grid ─────────────────────────────────────────────────────── */
+
+.workspace {
+  display: grid;
+  grid-template-columns: var(--pane-left) 6px minmax(0, 1fr);
+  /* Both explicit because the older `.workspace` rule in dashboard.css sets
+     `align-items: start` and a gap — either one leaves the panes short of the
+     viewport instead of filling it. */
+  align-items: stretch;
+  gap: 0;
+  min-height: 0;
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pane-left {
+  background: var(--panel-bg);
+  border-right: 1px solid var(--border);
+}
+
+/* Flex, not grid. A hidden child is removed from grid layout entirely, so with
+   the overview hidden (leaf selected) the traffic region slid up into the
+   `auto` row and sized itself to its content — which is why the detail pane
+   grew and shrank every time you switched tabs. Flex just skips the hidden
+   child and leaves the remaining one filling the pane. */
+.pane-right {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ── Splitters ──────────────────────────────────────────────────────────── */
+
+.splitter {
+  position: relative;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.splitter:hover,
+.splitter.dragging,
+.splitter:focus-visible {
+  background: var(--primary);
+}
+.splitter:focus-visible {
+  outline: none;
+}
+.splitter-v {
+  cursor: col-resize;
+}
+.splitter-h {
+  cursor: row-resize;
+  height: 6px;
+}
+.splitter-grip {
+  background: var(--border);
+  border-radius: 2px;
+}
+.splitter-v .splitter-grip {
+  width: 2px;
+  height: 28px;
+}
+.splitter-h .splitter-grip {
+  width: 28px;
+  height: 2px;
+}
+.splitter:hover .splitter-grip,
+.splitter.dragging .splitter-grip {
+  background: #fff;
+}
+
+/* ── Left pane: toolbar, tree, footer ───────────────────────────────────── */
+
+.pane-toolbar {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tree-search {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-main);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.tree-search:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.host-tree {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding-bottom: 8px;
+}
+
+.pane-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+}
+.pane-footer-hint {
+  opacity: 0.7;
+}
+
+.tree-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 10px 4px;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.tree-section-heading:hover {
+  color: var(--text-main);
+}
+.tree-section-heading:focus-visible {
+  outline: 1px solid var(--primary-dark);
+  outline-offset: -1px;
+}
+.tree-section-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tree-section-count {
+  flex: none;
+  padding: 0 5px;
+  font-size: 10px;
+  background: var(--card-bg);
+  border-radius: 8px;
+}
+.tree-section-focus .tree-section-heading {
+  color: var(--warning);
+}
+.tree-section-ignore {
+  opacity: 0.55;
+}
+
+.tree-empty {
+  padding: 12px 12px 16px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* ── Tree rows ──────────────────────────────────────────────────────────── */
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  /* --depth indents nested paths without a wrapper element per level, so the
+     whole tree stays one flat list and scrolling is cheap. */
+  padding: 3px 10px 3px calc(10px + var(--depth, 0) * 14px);
+  cursor: default;
+  white-space: nowrap;
+  user-select: none;
+}
+.tree-row:hover {
+  background: var(--row-hover);
+}
+.tree-row.selected {
+  background: var(--row-selected);
+  color: #fff;
+}
+.tree-row:focus-visible {
+  outline: 1px solid var(--primary-dark);
+  outline-offset: -1px;
+}
+
+.tree-twisty {
+  flex: none;
+  width: 12px;
+  font-size: 9px;
+  color: var(--text-muted);
+  text-align: center;
+  cursor: pointer;
+}
+.tree-row.selected .tree-twisty {
+  color: #dbeafe;
+}
+
+.tree-icon,
+.tree-lock {
+  flex: none;
+  font-size: 11px;
+}
+.tree-lock.off {
+  opacity: 0.45;
+}
+
+.tree-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tree-host .tree-name {
+  font-weight: 600;
+}
+/* A host that isn't decrypted is a host you can't see into — say so quietly
+   rather than showing an empty branch that looks broken. */
+.tree-host:has(.tree-lock.off) .tree-name {
+  color: var(--text-muted);
+}
+.tree-row.selected .tree-name {
+  color: #fff;
+}
+
+.tree-method {
+  flex: none;
+  min-width: 34px;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  text-align: right;
+  color: var(--text-muted);
+}
+.tree-method.GET {
+  color: #34d399;
+}
+.tree-method.POST {
+  color: #60a5fa;
+}
+.tree-method.PUT {
+  color: #fbbf24;
+}
+.tree-method.DELETE {
+  color: #f87171;
+}
+.tree-method.PATCH {
+  color: #c084fc;
+}
+
+.tree-count,
+.tree-errors,
+.tree-source,
+.tree-status {
+  flex: none;
+  padding: 0 5px;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 8px;
+}
+.tree-count {
+  margin-left: auto;
+  color: var(--text-muted);
+  background: rgba(148, 163, 184, 0.14);
+}
+.tree-errors {
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.22);
+}
+.tree-status.ok {
+  color: #6ee7b7;
+  background: rgba(16, 185, 129, 0.16);
+}
+.tree-status.err {
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.22);
+}
+.tree-source.mock {
+  color: #fcd34d;
+  background: rgba(245, 158, 11, 0.18);
+}
+.tree-source.proxy {
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.18);
+}
+.tree-source.intercept {
+  color: #d8b4fe;
+  background: rgba(168, 85, 247, 0.18);
+}
+.tree-source.server-off {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.18);
+}
+/* Louder than the rest on purpose: every other tag describes what happened to a
+   call, this one is a switch someone left on, and forgetting it is how a
+   working service looks broken for a week. */
+.tree-source.blocked {
+  color: #fff;
+  background: var(--danger);
+}
+
+/* ── Context menu ───────────────────────────────────────────────────────── */
+
+.ctx-menu {
+  position: fixed;
+  z-index: 2500;
+  min-width: 220px;
+  padding: 4px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+.ctx-heading {
+  padding: 6px 10px;
+  overflow: hidden;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+}
+.ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-main);
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.ctx-item:hover:not(:disabled),
+.ctx-item:focus-visible {
+  background: var(--primary);
+  outline: none;
+}
+.ctx-item:disabled {
+  color: var(--text-muted);
+  cursor: default;
+  opacity: 0.5;
+}
+.ctx-item.danger {
+  color: #fca5a5;
+}
+.ctx-item.danger:hover:not(:disabled) {
+  background: #7f1d1d;
+}
+.ctx-item.checked .ctx-label::before {
+  content: "✓ ";
+  color: var(--success);
+}
+.ctx-label {
+  flex: 1;
+}
+.ctx-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.ctx-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
+}
+
+/* ── Inspector: overview ────────────────────────────────────────────────── */
+
+.insp-overview {
+  /* Takes what it needs, but never more than half the pane — a host with the
+     controls expanded would otherwise leave no room for its traffic.
+     `flex-shrink: 0` is load-bearing: flex shrinkage is weighted by basis, so
+     while the traffic region below still had `flex-basis: auto` (a basis as tall
+     as a 1600px JSON tree) this box lost most of the overflow and the per-host
+     controls vanished the moment you opened a big response. It scrolls on its
+     own instead — see `overflow: auto` below. */
+  flex: 0 0 auto;
+  max-height: 50%;
+  min-width: 0;
+  padding: 14px 18px;
+  overflow: auto;
+  border-bottom: 1px solid var(--border);
+}
+/* Cap the reading width so the 503 switch and the latency select sit next to
+   their labels instead of a screen-width away on a wide monitor. */
+.ov {
+  max-width: 900px;
+}
+.ov-title {
+  margin: 0 0 10px;
+  font-family: var(--mono);
+  font-size: 15px;
+  word-break: break-all;
+}
+.ov-placeholder {
+  padding: 24px 0;
+  color: var(--text-muted);
+}
+.ov-banner {
+  padding: 9px 12px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  border-radius: 6px;
+}
+.ov-banner.warn {
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.13);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+.ov-grid {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 5px 18px;
+  margin: 0;
+}
+.ov-grid dt {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.ov-grid dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  word-break: break-all;
+}
+
+/* ── Inspector: per-host controls ───────────────────────────────────────── */
+
+.ov-controls {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.ov-controls-title {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.ov-control {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  cursor: pointer;
+}
+.ov-control + .ov-control {
+  border-top: 1px solid rgba(51, 65, 85, 0.5);
+}
+.ov-control-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ov-control-label {
+  font-size: 13px;
+}
+.ov-control-hint {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+.ov-control-select {
+  flex: none;
+  padding: 5px 9px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-main);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.ov-control-input {
+  /* Unlike the select next to it, this one carries a URL — give it room to show
+     one, but let it shrink first so it never pushes the label off screen. */
+  flex: 1 1 220px;
+  min-width: 0;
+  max-width: 340px;
+  padding: 5px 9px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-main);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.ov-control-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+.ov-control-note {
+  margin: 10px 0 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  word-break: break-all;
+}
+
+/* ── Inspector: traffic (hits over detail) ──────────────────────────────── */
+
+.insp-traffic {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  /* Until the divider is dragged, `--pane-hits` is a *cap*: a node with three
+     calls shouldn't reserve a third of the pane for an almost-empty table.
+     `fit-content()` is the only valid spelling — `max-content` is a track
+     keyword, so `min(var(--pane-hits), max-content)` is invalid and silently
+     drops the whole declaration, leaving three `auto` rows. */
+  grid-template-rows: fit-content(var(--pane-hits)) 6px minmax(0, 1fr);
+  /* Fill whatever the overview leaves, and never size to content — that's what
+     kept the detail pane resizing itself as you moved between tabs. The `0`
+     basis is the other half of that: with `auto`, this box's basis grew with the
+     rendered JSON and stole height from the overview above. */
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Once the user drags the divider their size is the size, full stop. With
+   `fit-content` still in play a drag does nothing whenever the list is shorter
+   than the track — the divider looks broken. Double-clicking it hands control
+   back to auto-fit. */
+:root[data-pane-hits-manual] .insp-traffic {
+  grid-template-rows: var(--pane-hits) 6px minmax(0, 1fr);
+}
+
+.insp-hits {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+.hits-empty {
+  padding: 20px 18px;
+  color: var(--text-muted);
+}
+
+.hits-table {
+  width: 100%;
+  font-size: 12px;
+  border-collapse: collapse;
+}
+.hits-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 6px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+}
+.hits-table td {
+  padding: 4px 10px;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+}
+/* The path is the one column allowed to take the slack and truncate. */
+.hits-table td:nth-child(3) {
+  width: 100%;
+  max-width: 0;
+  overflow: hidden;
+  font-family: var(--mono);
+  text-overflow: ellipsis;
+}
+.hits-table tbody tr {
+  cursor: default;
+}
+.hits-table tbody tr:hover {
+  background: var(--row-hover);
+}
+.hits-table tbody tr.selected {
+  background: var(--row-selected);
+  color: #fff;
+}
+.hits-table tbody tr.is-error td:nth-child(4) {
+  color: #fca5a5;
+  font-weight: 700;
+}
+.hits-table tbody tr.is-replayed td:first-child::after {
+  content: " ↻";
+  color: var(--primary-dark);
+}
+/* Distinct from ↻ on purpose: "I re-sent something that happened" and "I made
+   this request up" answer different questions when you're reading the log. */
+.hits-table tbody tr.is-composed td:first-child::after {
+  content: " →";
+  color: var(--primary-dark);
+}
+.hits-method {
+  font-family: var(--mono);
+  font-weight: 700;
+}
+.hits-source {
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+/* ── Inspector: detail ──────────────────────────────────────────────────── */
+
+.insp-detail-wrap {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-top: 1px solid var(--border);
+}
+.insp-detail-empty {
+  flex: 1;
+  padding: 20px 18px;
+  color: var(--text-muted);
+}
+/* `flex: 1` is what makes the detail reach the bottom of the pane. Without it
+   the panel sizes to its content and leaves dead space below a short body. */
+.insp-detail {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.insp-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.insp-meta-item {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-size: 12px;
+}
+.insp-meta-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.insp-path {
+  flex: 1;
+  min-width: 120px;
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.insp-transform-error {
+  padding: 7px 14px;
+  font-size: 12px;
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.insp-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.insp-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--bg);
+  border-radius: 6px;
+}
+.insp-tab {
+  padding: 5px 14px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.insp-tab.active {
+  color: var(--text-main);
+  background: var(--card-bg);
+}
+.insp-search-box {
+  display: flex;
+  flex: 1;
+  gap: 4px;
+  align-items: center;
+  min-width: 180px;
+}
+.insp-search-box input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 9px;
+  font-size: 12px;
+  color: var(--text-main);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.insp-search-box input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+/* A pattern mid-typing is invalid more often than not, so this has to read as
+   "not yet", not as an error: border only, no shake, no banner. The reason goes
+   in the input's title. */
+.insp-search-box input.invalid,
+.insp-search-box input.invalid:focus {
+  border-color: #f87171;
+}
+.insp-search-regex {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: -0.05em;
+}
+.insp-search-regex.active {
+  color: var(--primary);
+  background: rgba(59, 130, 246, 0.16);
+}
+.insp-search-count {
+  min-width: 34px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+}
+.insp-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.insp-tabpanels {
+  flex: 1;
+  min-height: 0;
+}
+/* The panel no longer scrolls — the visible sub-tab does, so its header stays
+   put and the body can't be pushed below the fold by a long headers list. */
+.insp-tabpanel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.insp-subtabs {
+  display: flex;
+  flex: none;
+  gap: 4px;
+  align-items: center;
+  padding: 5px 14px;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+}
+.insp-subtab {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: none;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.insp-subtab:hover {
+  color: var(--text-main);
+}
+.insp-subtab.active {
+  color: var(--text-main);
+  background: var(--card-bg);
+}
+.insp-copy-btn {
+  margin-left: auto;
+  padding: 0 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.insp-copy-btn:hover {
+  color: var(--text-main);
+}
+.insp-count {
+  padding: 0 5px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 400;
+  background: var(--bg);
+  border-radius: 8px;
+}
+.insp-subtab.active .insp-count {
+  background: var(--bg);
+}
+
+.jt-container {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 8px 14px 12px;
+  /* Vertical only. Long values wrap (see below) rather than pushing the tree
+     sideways — scrolling horizontally to read a value means scrolling away
+     from the key that names it. */
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* Only the value wraps. A 400-character token or a base64 cursor has no break
+   opportunities, so it needs `anywhere` to wrap at all, and `min-width: 0` is
+   what lets the flex item shrink below its content in the first place.
+   Keys and summaries are pinned at their natural width: breaking `requestId`
+   into `req`/`ues`/`tId` down the left edge makes the tree unreadable, which
+   is worse than the horizontal scrollbar this replaces. */
+.jt-row > .jt-val {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.jt-row > .jt-key,
+.jt-row > .jt-summary {
+  flex: 0 0 auto;
+}
+.jt-plain {
+  overflow-wrap: anywhere;
+}
+
+/* ── Inspector: mocks view ──────────────────────────────────────────────── */
+
+.insp-mocks {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 14px 18px;
+  overflow: auto;
+}
+.mocks-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+/* The full-pane views own the buttons that act on them — "+ New Mock" here,
+   "→ New request" on collections — rather than the app bar, which had grown a
+   row of actions belonging to screens you weren't looking at. */
+.mocks-head-actions,
+.coll-head-actions {
+  display: flex;
+  flex: none;
+  gap: 6px;
+  align-items: center;
+}
+.mocks-title {
+  margin: 0;
+  font-size: 16px;
+}
+.mocks-sub {
+  margin: 3px 0 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+/* Bulk toggles moved into a right-click menu, so both targets have to say so —
+   an action with no visible affordance is an action nobody finds. */
+.folder-hint {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0;
+}
+.folder-header:hover .folder-hint {
+  opacity: 0.75;
+}
+.mocks-host-head {
+  cursor: context-menu;
+}
+
+.mocks-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.13);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 8px;
+}
+
+/* ── Inspector: collections view ────────────────────────────────────────── */
+/* Shares .mocks-head / .mocks-title / .mocks-sub with the mock matrix: both are
+   full-pane views that replace the traffic panel, and they should read as the
+   same kind of screen rather than two designs that happen to sit in one pane. */
+
+.insp-requests {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 14px 18px;
+  overflow: auto;
+}
+
+.coll-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.coll-group {
+  overflow: hidden;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.coll-group-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 10px;
+  cursor: pointer;
+  user-select: none;
+  background: rgba(148, 163, 184, 0.06);
+  border-bottom: 1px solid var(--border);
+}
+.coll-group-head:hover {
+  background: rgba(148, 163, 184, 0.11);
+}
+/* Ungrouped is a leftover, not a peer: no run, no rename, and nothing to fold. */
+.coll-group-head.is-ungrouped {
+  cursor: default;
+  background: none;
+}
+.coll-twisty {
+  flex: none;
+  width: 12px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.coll-group-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+.coll-badge {
+  flex: none;
+  padding: 1px 7px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+}
+/* Same reasoning as .folder-hint on the mock matrix: the right-click menu is
+   where rename and delete live, and an action with no affordance is one nobody
+   finds. */
+.coll-hint {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-muted);
+  opacity: 0;
+}
+.coll-group-head:hover .coll-hint {
+  opacity: 0.75;
+}
+
+.coll-rows {
+  display: flex;
+  flex-direction: column;
+}
+.coll-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 10px;
+  cursor: pointer;
+  border-top: 1px solid rgba(51, 65, 85, 0.5);
+}
+.coll-rows > .coll-row:first-child {
+  border-top: none;
+}
+.coll-row:hover {
+  background: var(--row-hover);
+}
+.coll-row:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+/* ── Dragging a request ───────────────────────────────────────────
+   The insertion line is drawn on the row you are hovering rather than as a
+   floating element, so it can never drift out of sync with the list under it.
+   `position: relative` on the row is what the line is positioned against. */
+.coll-row {
+  position: relative;
+}
+.coll-row.dragging {
+  opacity: 0.4;
+  background: var(--row-hover);
+}
+.coll-row.drop-before::before,
+.coll-row.drop-after::after {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 2px;
+  content: "";
+  background: var(--primary);
+}
+.coll-row.drop-before::before {
+  top: -1px;
+}
+.coll-row.drop-after::after {
+  bottom: -1px;
+}
+/* Dropping on the group itself — its header, or the empty space in it —
+   appends, so the whole group lights up instead of one edge. */
+.coll-group.drag-over {
+  background: rgba(59, 130, 246, 0.1);
+  outline: 2px dashed var(--primary);
+  outline-offset: -2px;
+}
+.coll-method {
+  flex: none;
+  min-width: 46px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-align: right;
+  color: var(--text-muted);
+}
+.coll-method.GET {
+  color: #34d399;
+}
+.coll-method.POST {
+  color: #60a5fa;
+}
+.coll-method.PUT {
+  color: #fbbf24;
+}
+.coll-method.DELETE {
+  color: #f87171;
+}
+.coll-method.PATCH {
+  color: #c084fc;
+}
+/* The name is what you look for, so it gets the room; the path is the tiebreaker
+   between two similar ones and may be truncated. Both need min-width: 0 or a
+   long path pushes the status and the send button off the right edge. */
+.coll-req-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.coll-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.coll-instance {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+/* Sits inside the name, so it travels with it when the row is truncated: a
+   request that checks nothing must not look like one that passed. */
+.coll-expect-mark {
+  margin-left: 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--primary-dark);
+  opacity: 0.8;
+}
+.coll-status {
+  flex: none;
+  /* Wide enough for "200 ✓ · 143 ms" without the row reflowing mid-run. */
+  min-width: 84px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-align: right;
+  color: var(--text-muted);
+}
+.coll-status.is-ok {
+  color: var(--success);
+}
+.coll-status.is-warn {
+  color: var(--warning);
+}
+.coll-status.is-err {
+  color: var(--danger);
+}
+.coll-status.is-running {
+  color: var(--primary-dark);
+}
+.coll-send {
+  flex: none;
+}
+
+.coll-empty-row,
+.coll-blank {
+  padding: 14px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.coll-blank {
+  padding: 28px 12px;
+  text-align: center;
+}
+.coll-blank p {
+  margin: 0 0 6px;
+}
+.coll-blank-hint {
+  font-size: 12px;
+}
+
+/* ── Header popovers ────────────────────────────────────────────────────── */
+
+.popover-wrapper {
+  position: relative;
+}
+.popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 1200;
+  display: none;
+  width: 290px;
+  padding: 8px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+.popover-wrapper.open .popover {
+  display: block;
+}
+.popover-header {
+  padding: 6px 8px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.popover-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.popover-divider {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--border);
+}
+.popover-profiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 4px 8px;
+}
+.popover-action {
+  width: 100%;
+  margin-top: 4px;
+}
+.popover-add {
+  display: flex;
+  gap: 6px;
+  padding: 4px 8px 8px;
+}
+.popover-add input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 9px;
+  font-size: 12px;
+  color: var(--text-main);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+/* ── Edit & Retry modal ─────────────────────────────────────────────────── */
+
+#replay-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: none; /* flipped to flex when opened */
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+}
+.replay-content {
+  display: flex;
+  flex-direction: column;
+  width: min(920px, 100%);
+  height: min(680px, 100%);
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow, 0 20px 40px rgba(0, 0, 0, 0.5));
+}
+.replay-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: baseline;
+  padding: 14px 18px 10px;
+}
+.replay-header h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.replay-host-note {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.replay-host-note code {
+  font-family: var(--mono);
+}
+/* Compose mode swaps the fixed host for a picker. Only one of the two is ever
+   shown — a replay's target is not a choice. */
+.replay-instance {
+  padding: 4px 8px;
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-main);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.replay-instance:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+.replay-instance option:disabled {
+  color: var(--text-muted);
+}
+/* Sized apart, not together: a target is a long hostname and needs the room,
+   a saved-request name is short. One shared cap truncated every host at the
+   point where this project's environments actually differ. */
+#replay-instance {
+  max-width: 460px;
+}
+#replay-saved {
+  max-width: 200px;
+}
+/* Pushed to the far end of the header: it acts on the whole modal, not on the
+   target next to it. */
+.replay-saved {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-left: auto;
+}
+.replay-saved .btn-icon:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.replay-line {
+  display: flex;
+  gap: 8px;
+  padding: 0 18px 12px;
+}
+.replay-method,
+.replay-path {
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-main);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.replay-method {
+  flex: none;
+  font-family: var(--mono);
+  font-weight: 700;
+}
+.replay-path {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--mono);
+}
+.replay-path:focus,
+.replay-method:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.replay-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 18px;
+}
+.replay-tab {
+  padding: 5px 14px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: none;
+  border: 0;
+  border-radius: 5px 5px 0 0;
+  cursor: pointer;
+}
+.replay-tab.active {
+  color: var(--text-main);
+  background: var(--bg);
+}
+
+.replay-panes {
+  flex: 1;
+  min-height: 0;
+  margin: 0 18px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 0 6px 6px 6px;
+}
+/* Every pane is a column: a bar on top where there is one, the editor taking
+   whatever is left. This used to be a special case on #replay-pane-expect, the
+   only pane that wasn't just an editor — and the moment Variables became the
+   second one, its editor kept its full height, the bar pushed the pane past the
+   modal, and the footer buttons went under it. A shape two panes share is not a
+   special case. A pane with no bar is unaffected: `flex: 1` in a column of one
+   is the `height: 100%` it had. */
+.replay-pane {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.replay-pane > .replay-editor {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+.replay-editor {
+  width: 100%;
+  height: 100%;
+  /* Dark from the start, so the window before Ace's theme module lands isn't a
+     white flash inside a dark modal. Same reason as #code-editor, where the
+     full note lives. */
+  background: var(--ace-bg);
+}
+
+/* Above the variables editor: what the shape is, and what can be piped. The
+   filter list is here rather than in the docs because the moment you need it is
+   the moment you are typing one. */
+.replay-vars-bar {
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+.replay-vars-bar code {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-main);
+}
+.replay-vars-filters {
+  opacity: 0.75;
+}
+.replay-vars-filters code {
+  margin-right: 4px;
+}
+
+/* Status, hint and the schemas/ controls on one line above the editor — the
+   editor is the pane's whole point and every row taken from it is a row of
+   schema you can't see. */
+.replay-expect-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.replay-expect-status {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+#replay-expect-file {
+  max-width: 190px;
+}
+#replay-expect-status {
+  width: 76px;
+  padding: 4px 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-main);
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.replay-expect-hint {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.75;
+}
+
+/* Validation lives in the modal, not in a toast that fades while you're still
+   looking at the editor you need to fix. */
+.replay-error {
+  margin: 10px 18px 0;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.14);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 6px;
+  /* A failed expectation arrives as one error per line, and there can be a
+     screenful of them — they break, and the box scrolls rather than pushing
+     the editor out of the modal. */
+  white-space: pre-line;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.replay-footer {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 14px 18px;
+}
+.replay-hint {
+  margin-right: auto;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ── Narrow-window gate ─────────────────────────────────────────────────── */
+
+.narrow-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg);
+}
+.narrow-gate[hidden] {
+  display: none;
+}
+.narrow-gate-card {
+  max-width: 420px;
+  text-align: center;
+}
+.narrow-gate-card h1 {
+  font-size: 20px;
+}
+.narrow-gate-card p {
+  margin-bottom: 18px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.btn-icon {
+  padding: 5px 8px;
+  line-height: 1;
+}

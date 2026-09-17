@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IR Proxy — Certificate Setup</title>
+    <meta
+      name="description"
+      content="Point your device at the IR Proxy and install its Root CA so HTTPS traffic can be inspected."
+    />
+    <style>
+      :root {
+        --bg: #0f172a;
+        --card: #1e293b;
+        --accent: #6366f1;
+        --text: #e2e8f0;
+        --muted: #94a3b8;
+        --border: #334155;
+        --ok: #10b981;
+        --warn: #f59e0b;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        line-height: 1.6;
+        padding: 20px 16px 56px;
+        /* Phones with a notch — keep content clear of the safe areas. */
+        padding-left: max(16px, env(safe-area-inset-left));
+        padding-right: max(16px, env(safe-area-inset-right));
+      }
+      .wrap {
+        max-width: 640px;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 1.4rem;
+        margin-bottom: 6px;
+      }
+      .lede {
+        color: var(--muted);
+        margin-bottom: 22px;
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 14px;
+      }
+      .card h2 {
+        font-size: 1rem;
+        color: var(--accent);
+        margin-bottom: 8px;
+      }
+      .kv {
+        display: grid;
+        grid-template-columns: max-content 1fr;
+        gap: 4px 14px;
+        margin: 10px 0;
+      }
+      .kv dt {
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+      .kv dd {
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 0.95rem;
+        word-break: break-all;
+      }
+      code {
+        background: #12151f;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        color: #a5b4fc;
+      }
+      ol,
+      ul {
+        padding-left: 1.2rem;
+      }
+      li {
+        margin: 5px 0;
+      }
+      .btn {
+        display: inline-block;
+        padding: 12px 18px;
+        border: 0;
+        border-radius: 10px;
+        background: var(--accent);
+        color: #fff;
+        font: inherit;
+        font-weight: 600;
+        text-decoration: none;
+        text-align: center;
+        cursor: pointer;
+        /* Comfortably tappable — this page exists for phones. */
+        min-height: 46px;
+      }
+      .btn.alt {
+        background: #1e293b;
+        border: 1px solid var(--border);
+      }
+      .btn-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .btn-row .btn {
+        flex: 1 1 180px;
+      }
+      .tabs {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 12px;
+        overflow-x: auto;
+      }
+      .tab {
+        flex: none;
+        padding: 8px 14px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        color: var(--muted);
+        font: inherit;
+        cursor: pointer;
+      }
+      .tab[aria-selected="true"] {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      .panel[hidden] {
+        display: none;
+      }
+      .status {
+        margin-top: 12px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        display: none;
+      }
+      .status.show {
+        display: block;
+      }
+      .status.ok {
+        background: rgba(16, 185, 129, 0.14);
+        border: 1px solid rgba(16, 185, 129, 0.4);
+        color: #6ee7b7;
+      }
+      .status.bad {
+        background: rgba(245, 158, 11, 0.13);
+        border: 1px solid rgba(245, 158, 11, 0.4);
+        color: #fde68a;
+      }
+      .hosts {
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+      footer {
+        margin-top: 24px;
+        color: var(--muted);
+        font-size: 0.85rem;
+        text-align: center;
+      }
+      footer a {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="wrap">
+      <h1>🔐 Proxy setup</h1>
+      <p class="lede">
+        Point this device at the proxy, then install its Root CA so HTTPS traffic can be
+        decrypted.
+      </p>
+
+      <div class="card">
+        <h2>1 · Proxy settings</h2>
+        <p>Enter these in your Wi-Fi network's HTTP proxy settings:</p>
+        <dl class="kv">
+          <dt>Server</dt>
+          <dd id="proxy-ip">…</dd>
+          <dt>Port</dt>
+          <dd id="proxy-port">…</dd>
+          <dt>Type</dt>
+          <dd>HTTP (covers HTTPS too)</dd>
+        </dl>
+      </div>
+
+      <div class="card">
+        <h2>2 · Download the certificate</h2>
+        <div class="btn-row">
+          <a class="btn" id="dl-primary" href="/__admin/proxy/ca.pem" download
+            >Download</a
+          >
+          <a class="btn alt" id="dl-other" href="/__admin/proxy/ca.cer" download>
+            Other format
+          </a>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>3 · Install &amp; trust it</h2>
+        <div class="tabs" role="tablist" id="tabs"></div>
+
+        <div class="panel" id="panel-ios" hidden>
+          <ol>
+            <li>
+              Tap <strong>Download</strong> above — iOS saves a configuration profile.
+            </li>
+            <li>
+              Open <strong>Settings → Profile Downloaded</strong> and tap
+              <strong>Install</strong> (top right), then enter your passcode.
+            </li>
+            <li>
+              Now the important bit:
+              <strong>Settings → General → About → Certificate Trust Settings</strong>.
+            </li>
+            <li>Turn <strong>ON</strong> the switch next to <code>IR Proxy CA</code>.</li>
+          </ol>
+          <p style="color: var(--warn); font-size: 0.87rem; margin-top: 8px">
+            Installing the profile is not enough on its own — HTTPS keeps failing until
+            the trust switch in step 4 is on.
+          </p>
+        </div>
+
+        <div class="panel" id="panel-android" hidden>
+          <ol>
+            <li>
+              Tap <strong>Download</strong> above to save the <code>.pem</code> file.
+            </li>
+            <li>
+              Open
+              <strong
+                >Settings → Security → Encryption &amp; credentials → Install a
+                certificate → CA certificate</strong
+              >, then confirm the warning.
+            </li>
+            <li>Pick the downloaded <code>ir-proxy-ca.pem</code>.</li>
+            <li>
+              Verify under <strong>Trusted credentials → User</strong> — it should list
+              <code>IR Proxy CA</code>.
+            </li>
+          </ol>
+          <p style="color: var(--warn); font-size: 0.87rem; margin-top: 8px">
+            Android 7+ apps ignore user-installed CAs unless the app opts in. For your own
+            builds, add the
+            <a href="/__admin/proxy/network-security-config" style="color: var(--accent)">
+              network security config</a
+            >
+            to the app.
+          </p>
+        </div>
+
+        <div class="panel" id="panel-macos" hidden>
+          <ol>
+            <li>Download the <code>.pem</code> above.</li>
+            <li>Double-click it — <em>Keychain Access</em> opens.</li>
+            <li>Find <strong>IR Proxy CA</strong> and double-click it.</li>
+            <li>Expand <em>Trust</em> and set <strong>Always Trust</strong>.</li>
+            <li>Close the window and enter your password.</li>
+          </ol>
+        </div>
+
+        <div class="panel" id="panel-windows" hidden>
+          <ol>
+            <li>Download the <code>.pem</code> above.</li>
+            <li>Double-click it and choose <strong>Install Certificate</strong>.</li>
+            <li>Select <strong>Local Machine</strong>, then Next.</li>
+            <li>
+              Choose <em>Place all certificates in the following store</em> →
+              <strong>Trusted Root Certification Authorities</strong>.
+            </li>
+            <li>Finish and accept the security warning.</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>4 · Check it worked</h2>
+        <p style="color: var(--muted); font-size: 0.9rem">
+          Confirms this device is going through the proxy and trusts its certificate.
+        </p>
+        <div class="btn-row">
+          <button class="btn" id="verify">Run the check</button>
+        </div>
+        <div class="status" id="verify-status" role="status"></div>
+      </div>
+
+      <div class="card">
+        <h2>Currently decrypted</h2>
+        <p style="color: var(--muted); font-size: 0.9rem">
+          Only these hosts are intercepted. Everything else tunnels through untouched.
+        </p>
+        <div class="hosts" id="ssl-hosts">…</div>
+      </div>
+
+      <footer>
+        The full dashboard needs a desktop-sized screen.<br />
+        <a href="/?desktop=1">Open it anyway</a>
+      </footer>
+    </div>
+
+    <script type="module">
+      import { detectPlatform } from "./js/modules/certs.js";
+
+      const PLATFORMS = [
+        { os: "ios", label: "iOS" },
+        { os: "android", label: "Android" },
+        { os: "macos", label: "macOS" },
+        { os: "windows", label: "Windows" },
+      ];
+
+      const detected = detectPlatform();
+
+      // Lead with the visitor's own OS — on a phone, scrolling past three
+      // irrelevant platforms to reach yours is the whole friction.
+      const ordered = [
+        detected.os,
+        ...PLATFORMS.map((p) => p.os).filter((os) => os !== detected.os),
+      ];
+
+      const tabs = document.getElementById("tabs");
+      ordered.forEach((os, index) => {
+        const meta = PLATFORMS.find((p) => p.os === os) || PLATFORMS[2];
+        const btn = document.createElement("button");
+        btn.className = "tab";
+        btn.type = "button";
+        btn.setAttribute("role", "tab");
+        btn.textContent = meta.label + (index === 0 ? " · this device" : "");
+        btn.setAttribute("aria-selected", String(index === 0));
+        btn.addEventListener("click", () => select(os));
+        tabs.appendChild(btn);
+        document.getElementById(`panel-${os}`).hidden = index !== 0;
+      });
+
+      function select(os) {
+        [...tabs.children].forEach((btn, i) =>
+          btn.setAttribute("aria-selected", String(ordered[i] === os))
+        );
+        PLATFORMS.forEach((p) => {
+          document.getElementById(`panel-${p.os}`).hidden = p.os !== os;
+        });
+      }
+
+      // Point the buttons at the right file for the detected platform.
+      const isIos = detected.os === "ios";
+      const primary = document.getElementById("dl-primary");
+      const other = document.getElementById("dl-other");
+      primary.href = detected.certUrl;
+      primary.textContent = `Download ${detected.certExt} · ${detected.label}`;
+      other.href = isIos ? "/__admin/proxy/ca.pem" : "/__admin/proxy/ca.cer";
+      other.textContent = isIos ? "Download .pem" : "Download .cer (iOS)";
+
+      // Real IP and port, rather than telling the reader to go find them.
+      try {
+        const info = await fetch("/__admin/proxy/info").then((r) => r.json());
+        document.getElementById("proxy-ip").textContent = info.localIPs?.[0] || "—";
+        document.getElementById("proxy-port").textContent = String(info.port ?? "—");
+      } catch {
+        document.getElementById("proxy-ip").textContent = location.hostname;
+        document.getElementById("proxy-port").textContent = location.port || "8888";
+      }
+
+      try {
+        const { hosts } = await fetch("/__admin/hosts").then((r) => r.json());
+        const decrypted = hosts.filter((h) => h.ssl).map((h) => h.host);
+        document.getElementById("ssl-hosts").textContent = decrypted.length
+          ? decrypted.join("\n")
+          : "Nothing is being decrypted yet.";
+      } catch {
+        document.getElementById("ssl-hosts").textContent = "—";
+      }
+
+      // "Did the certificate actually install?" is the number one support
+      // question, so answer it with a button instead of a paragraph.
+      document.getElementById("verify").addEventListener("click", async (event) => {
+        const status = document.getElementById("verify-status");
+        event.target.disabled = true;
+        status.className = "status show";
+        status.textContent = "Checking…";
+
+        try {
+          const res = await fetch("/__admin/health", { cache: "no-store" });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          await res.json();
+          status.className = "status show ok";
+          status.textContent =
+            "✓ This device can reach the proxy. If an app still fails, it likely pins its certificate.";
+        } catch (err) {
+          status.className = "status show bad";
+          status.textContent =
+            "Could not reach the proxy from this device. Re-check the Wi-Fi proxy settings in step 1. (" +
+            err.message +
+            ")";
+        } finally {
+          event.target.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>

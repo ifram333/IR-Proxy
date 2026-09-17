@@ -1,0 +1,1314 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mock Proxy | Control Center</title>
+    <meta
+      name="description"
+      content="IR Proxy — inspect live proxy traffic per host, toggle SSL proxying, and manage API mocks."
+    />
+    <!-- dashboard.css first: it still owns the shared components (buttons,
+         switches, modals, the JSON tree, toasts). app.css defines the workspace
+         shell and must win where the two overlap. -->
+    <link rel="stylesheet" href="css/dashboard.css" />
+    <link rel="stylesheet" href="css/app.css" />
+    <script>
+      // Restore the pane sizes before first paint. Inline and synchronous on
+      // purpose: doing this from a module would run after layout and the panes
+      // would visibly jump to their new widths on every load.
+      try {
+        var panes = JSON.parse(localStorage.getItem("ir-proxy.panes") || "{}");
+        Object.keys(panes).forEach(function (name) {
+          if (/^[\d.]+(px|%)$/.test(panes[name])) {
+            document.documentElement.style.setProperty("--" + name, panes[name]);
+          }
+          // Restore "the user has dragged this one" too, or the pane would
+          // auto-fit for a frame before snapping back to their size.
+          if (panes[name] === true && /-manual$/.test(name)) {
+            document.documentElement.setAttribute("data-" + name, "1");
+          }
+        });
+      } catch (e) {
+        /* a corrupt value just means defaults */
+      }
+    </script>
+    <!-- Ace editor is loaded lazily the first time the code editor is opened
+         (see ensureEditor in js/modules/editor.js) to keep initial load light. -->
+  </head>
+
+  <body>
+    <div class="app" id="app">
+      <!-- ── Header ─────────────────────────────────────────────── -->
+      <header class="app-bar">
+        <div class="app-brand">
+          <span class="app-logo">🛠️</span>
+          <span class="app-title">Mock Proxy</span>
+        </div>
+
+        <div class="app-bar-spacer"></div>
+
+        <div class="proxy-status-badge" id="proxy-status-badge" style="display: none">
+          <span class="proxy-icon">🔀</span>
+          <span id="proxy-status-text">—</span>
+        </div>
+
+        <div class="health-badge">
+          <div class="health-dot" title="Server status"></div>
+          <span id="health-info">loading…</span>
+        </div>
+
+        <!-- What the activity log is holding. Hidden until the first health
+             poll answers, so it never flashes a meaningless zero. -->
+        <button
+          class="log-stats"
+          id="log-stats"
+          style="display: none"
+          onclick="toggleLogPaused()"
+          aria-label="Activity log size — click to pause or resume recording"
+        ></button>
+
+        <button
+          class="btn btn-ghost"
+          id="btn-all-mocks"
+          onclick="openAllMocks()"
+          title="Every mock across every host"
+        >
+          🗂 All mocks
+        </button>
+
+        <button
+          class="btn btn-ghost"
+          id="btn-collections"
+          onclick="openCollections()"
+          title="Saved requests, grouped and runnable"
+        >
+          📁 Collections
+        </button>
+
+        <!-- Certificate download -->
+        <div class="cert-btn-wrapper" id="cert-btn-wrapper">
+          <button class="cert-btn" id="cert-main-btn" onclick="toggleCertDropdown(event)">
+            <span class="cert-platform-icon" id="cert-platform-icon">🔐</span>
+            <span id="cert-platform-label">CA Certificate</span>
+            <span class="cert-arrow">▾</span>
+          </button>
+          <div class="cert-dropdown" id="cert-dropdown">
+            <div class="cert-dropdown-header">Download for your platform</div>
+            <div id="cert-dropdown-items"></div>
+            <div class="cert-dropdown-divider"></div>
+            <div class="cert-dropdown-guide" onclick="openInstallGuide()">
+              📖 View full install guide
+            </div>
+          </div>
+        </div>
+
+        <!-- Settings popover: the controls the old instance cards used to host -->
+        <div class="popover-wrapper" id="settings-wrapper">
+          <button
+            class="btn btn-ghost"
+            id="btn-settings"
+            onclick="toggleSettings(event)"
+            title="Proxy settings"
+            aria-label="Proxy settings"
+          >
+            ⚙
+          </button>
+          <div class="popover" id="settings-popover">
+            <div class="popover-header">Proxy settings</div>
+
+            <label class="popover-row" title="Start/stop the direct :3000+ servers">
+              <span>Standalone servers</span>
+              <span class="switch">
+                <input
+                  type="checkbox"
+                  id="standalone-checkbox"
+                  onchange="toggleStandalone(this.checked)"
+                />
+                <span class="slider"></span>
+              </span>
+            </label>
+
+            <div class="popover-divider"></div>
+
+            <div class="popover-header">Scenario profiles</div>
+            <div id="profiles-list" class="popover-profiles">
+              <span class="no-profiles">Loading…</span>
+            </div>
+            <button class="btn btn-ghost popover-action" onclick="saveProfile()">
+              + Save current
+            </button>
+
+            <div class="popover-divider"></div>
+
+            <div class="popover-header">Access</div>
+            <button
+              class="btn btn-ghost popover-action"
+              id="btn-approved-clients"
+              onclick="openApprovedClients()"
+            >
+              🔑 Approved devices <span id="approved-count" class="popover-badge"></span>
+            </button>
+
+            <div class="popover-divider"></div>
+
+            <div class="popover-header">Add a host</div>
+            <div class="popover-add">
+              <input
+                type="text"
+                id="add-instance-target"
+                placeholder="https://api.example.com"
+                onkeydown="if (event.key === 'Enter') submitAddInstance();"
+              />
+              <button class="btn btn-primary" onclick="submitAddInstance()">Add</button>
+            </div>
+          </div>
+        </div>
+
+        <button
+          class="btn btn-ghost"
+          id="btn-shortcuts"
+          onclick="openShortcuts()"
+          title="Keyboard shortcuts (?)"
+          aria-label="Keyboard shortcuts"
+        >
+          ⌨
+        </button>
+      </header>
+
+      <!-- ── Workspace ──────────────────────────────────────────── -->
+      <div class="workspace" id="workspace">
+        <!-- Left: host tree -->
+        <aside class="pane pane-left" id="pane-left">
+          <div class="pane-toolbar">
+            <input
+              type="text"
+              class="tree-search"
+              id="tree-search"
+              placeholder="Filter hosts and paths…"
+              data-hint-find
+              oninput="handleTreeSearch(this.value)"
+            />
+            <button
+              class="btn btn-ghost btn-icon"
+              onclick="clearAllEntries()"
+              title="Clear every captured request"
+              aria-label="Clear the log"
+            >
+              🗑
+            </button>
+          </div>
+
+          <div class="host-tree" id="host-tree" role="tree" aria-label="Hosts">
+            <div class="tree-empty">Loading…</div>
+          </div>
+
+          <div class="pane-footer">
+            <span id="tree-count">0 requests</span>
+            <span class="pane-footer-hint">Right-click a host for options</span>
+          </div>
+        </aside>
+
+        <!-- Vertical splitter -->
+        <div class="splitter splitter-v" id="splitter-left" aria-label="Resize panels">
+          <span class="splitter-grip"></span>
+        </div>
+
+        <!-- Right: inspector -->
+        <section class="pane pane-right" id="pane-right">
+          <!-- Overview: shown for a host or folder selection -->
+          <div class="insp-overview" id="insp-overview"></div>
+
+          <!-- Traffic: hits table over the call detail -->
+          <div class="insp-traffic" id="insp-traffic" hidden>
+            <div class="insp-hits" id="insp-hits"></div>
+
+            <div
+              class="splitter splitter-h"
+              id="splitter-hits"
+              aria-label="Resize the request list"
+            >
+              <span class="splitter-grip"></span>
+            </div>
+
+            <div class="insp-detail-wrap">
+              <div class="insp-detail-empty" id="insp-detail-empty">
+                Select a request above to inspect it.
+              </div>
+
+              <div class="insp-detail" id="insp-detail" hidden>
+                <div class="insp-meta">
+                  <span class="log-method" id="insp-method">—</span>
+                  <span class="log-source" id="insp-status">—</span>
+                  <span class="insp-meta-item">
+                    <span class="insp-meta-label">Time</span>
+                    <span id="insp-time">—</span>
+                  </span>
+                  <span class="insp-meta-item">
+                    <span class="insp-meta-label">Duration</span>
+                    <span id="insp-duration">—</span>
+                  </span>
+                  <span class="log-source" id="insp-source">—</span>
+                  <span class="insp-path" id="insp-path" title="Request path">—</span>
+                </div>
+
+                <div class="insp-transform-error" id="insp-transform-error" hidden>
+                  ⚠ Transform error:
+                  <span id="insp-transform-error-msg"></span>
+                </div>
+
+                <div class="insp-toolbar">
+                  <div class="insp-tabs" role="tablist">
+                    <button
+                      class="insp-tab active"
+                      id="insp-tab-request"
+                      role="tab"
+                      aria-selected="true"
+                      onclick="switchInspectorTab('request')"
+                    >
+                      Request
+                    </button>
+                    <button
+                      class="insp-tab"
+                      id="insp-tab-response"
+                      role="tab"
+                      aria-selected="false"
+                      onclick="switchInspectorTab('response')"
+                    >
+                      Response
+                    </button>
+                  </div>
+
+                  <div class="insp-search-box">
+                    <input
+                      type="text"
+                      id="insp-search"
+                      placeholder="Find in this tab…"
+                      data-hint-find
+                      oninput="handleInspectorSearch(this.value)"
+                      onkeydown="handleInspectorSearchKey(event)"
+                    />
+                    <button
+                      class="btn btn-ghost btn-icon insp-search-regex"
+                      id="insp-search-regex"
+                      onclick="toggleInspectorRegex()"
+                      aria-pressed="false"
+                      title="Match with a regular expression"
+                      aria-label="Match with a regular expression"
+                    >
+                      .*
+                    </button>
+                    <span class="insp-search-count" id="insp-search-count"></span>
+                    <button
+                      class="btn btn-ghost btn-icon"
+                      onclick="inspectorSearchPrev()"
+                      title="Previous match (Shift+Enter)"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      class="btn btn-ghost btn-icon"
+                      onclick="inspectorSearchNext()"
+                      title="Next match (Enter)"
+                    >
+                      ↓
+                    </button>
+                  </div>
+
+                  <div class="insp-actions">
+                    <button
+                      class="btn btn-ghost"
+                      id="btn-insp-replay"
+                      onclick="replayCurrent()"
+                    >
+                      ↻ Retry
+                    </button>
+                    <button class="btn btn-ghost" onclick="copyAsCurl()">
+                      Copy as cURL
+                    </button>
+                    <button class="btn btn-primary" onclick="createMockFromEntry()">
+                      ✨ Create Mock
+                    </button>
+                  </div>
+                </div>
+
+                <div class="insp-tabpanels">
+                  <!-- Request. Query/Headers/Body are sub-tabs rather than
+                       stacked sections: stacked, a long headers list pushed the
+                       body below the fold and you had to scroll to find it. -->
+                  <div
+                    class="insp-tabpanel active"
+                    id="insp-panel-request"
+                    data-tab="request"
+                    role="tabpanel"
+                  >
+                    <div class="insp-subtabs" role="tablist">
+                      <button
+                        class="insp-subtab"
+                        id="insp-sub-req-query"
+                        role="tab"
+                        aria-selected="false"
+                        onclick="switchInspectorSubTab('request', 'req-query')"
+                      >
+                        Query params
+                        <span class="insp-count" id="insp-req-query-count">0</span>
+                      </button>
+                      <button
+                        class="insp-subtab"
+                        id="insp-sub-req-headers"
+                        role="tab"
+                        aria-selected="false"
+                        onclick="switchInspectorSubTab('request', 'req-headers')"
+                      >
+                        Headers
+                        <span class="insp-count" id="insp-req-headers-count">0</span>
+                      </button>
+                      <button
+                        class="insp-subtab active"
+                        id="insp-sub-req-body"
+                        role="tab"
+                        aria-selected="true"
+                        onclick="switchInspectorSubTab('request', 'req-body')"
+                      >
+                        Body
+                      </button>
+                      <button
+                        class="insp-copy-btn"
+                        onclick="copyVisibleSection('request')"
+                        title="Copy this section"
+                      >
+                        ⧉
+                      </button>
+                    </div>
+
+                    <div
+                      class="jt-container"
+                      id="insp-req-query"
+                      data-sub="req-query"
+                      hidden
+                    ></div>
+                    <div
+                      class="jt-container"
+                      id="insp-req-headers"
+                      data-sub="req-headers"
+                      hidden
+                    ></div>
+                    <div
+                      class="jt-container"
+                      id="insp-req-body"
+                      data-sub="req-body"
+                    ></div>
+                  </div>
+
+                  <!-- Response -->
+                  <div
+                    class="insp-tabpanel"
+                    id="insp-panel-response"
+                    data-tab="response"
+                    role="tabpanel"
+                    hidden
+                  >
+                    <div class="insp-subtabs" role="tablist">
+                      <button
+                        class="insp-subtab"
+                        id="insp-sub-res-headers"
+                        role="tab"
+                        aria-selected="false"
+                        onclick="switchInspectorSubTab('response', 'res-headers')"
+                      >
+                        Headers
+                        <span class="insp-count" id="insp-res-headers-count">0</span>
+                      </button>
+                      <button
+                        class="insp-subtab active"
+                        id="insp-sub-res-body"
+                        role="tab"
+                        aria-selected="true"
+                        onclick="switchInspectorSubTab('response', 'res-body')"
+                      >
+                        Body
+                      </button>
+                      <button
+                        class="insp-copy-btn"
+                        onclick="copyVisibleSection('response')"
+                        title="Copy this section"
+                      >
+                        ⧉
+                      </button>
+                    </div>
+
+                    <div
+                      class="jt-container"
+                      id="insp-res-headers"
+                      data-sub="res-headers"
+                      hidden
+                    ></div>
+                    <div
+                      class="jt-container"
+                      id="insp-res-body"
+                      data-sub="res-body"
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mocks: per-host, and the cross-host matrix -->
+          <div class="insp-mocks" id="insp-mocks" hidden>
+            <div class="mocks-head">
+              <div>
+                <h2 class="mocks-title" id="mocks-title">Mocks</h2>
+                <p class="mocks-sub" id="mocks-sub"></p>
+              </div>
+              <div class="mocks-head-actions">
+                <button
+                  class="btn btn-primary"
+                  id="btn-create-mock"
+                  onclick="createMock()"
+                  title="Create a mock file (⌘⌥N)"
+                >
+                  + New Mock
+                </button>
+                <button class="btn btn-ghost" onclick="closeMocksView()">
+                  ← Back to traffic
+                </button>
+              </div>
+            </div>
+
+            <div class="mocks-banner" id="mocks-ssl-banner" hidden>
+              <span>
+                SSL proxying is off for this host — its traffic is tunneled, so
+                <strong>no mock will ever run</strong> here.
+              </span>
+              <button class="btn btn-primary" id="mocks-enable-ssl">
+                Enable SSL proxying
+              </button>
+            </div>
+
+            <div class="toolbar">
+              <div class="search-box">
+                <input
+                  type="text"
+                  id="mock-search"
+                  placeholder="Filter mocks by name or path…"
+                  data-hint-find
+                  oninput="handleSearch(this.value)"
+                />
+              </div>
+              <div id="results-count"></div>
+            </div>
+
+            <div class="matrix-container">
+              <table>
+                <thead>
+                  <tr id="h-row">
+                    <th>Mock Definition</th>
+                  </tr>
+                </thead>
+                <tbody id="b-row"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Collections: saved requests, grouped and runnable in order.
+               Rows are built as DOM by modules/collections.js — names and paths
+               here are typed by the user, so they go in as textContent. -->
+          <div class="insp-requests" id="insp-requests" hidden>
+            <div class="mocks-head">
+              <div>
+                <h2 class="mocks-title">Collections</h2>
+                <p class="mocks-sub" id="coll-sub"></p>
+              </div>
+              <div class="coll-head-actions">
+                <button
+                  class="btn btn-ghost"
+                  id="btn-coll-stop"
+                  hidden
+                  onclick="stopRun()"
+                >
+                  ■ Stop
+                </button>
+                <button class="btn btn-ghost" onclick="createCollection()">
+                  + New collection
+                </button>
+                <button
+                  class="btn btn-primary"
+                  id="btn-new-request"
+                  onclick="openComposer()"
+                  title="Compose a request and send it through the proxy (⌘⌥R)"
+                >
+                  → New request
+                </button>
+                <button class="btn btn-ghost" onclick="closeCollections()">
+                  ← Back to traffic
+                </button>
+              </div>
+            </div>
+
+            <div class="toolbar">
+              <div class="search-box">
+                <input
+                  type="text"
+                  id="coll-search"
+                  placeholder="Filter saved requests by name or path…"
+                  data-hint-find
+                  oninput="handleCollectionSearch(this.value)"
+                />
+              </div>
+              <div id="coll-count"></div>
+            </div>
+
+            <div class="coll-list" id="coll-list"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- Shown instead of the workspace on phones/tablets -->
+    <div class="narrow-gate" id="narrow-gate" hidden>
+      <div class="narrow-gate-card">
+        <h1>🖥️ This dashboard needs a wider window</h1>
+        <p>
+          The traffic inspector is built for desktop-sized screens. Widen the window, or
+          open the certificate setup guide instead.
+        </p>
+        <a class="btn btn-primary" href="/install-guide.html">Open the setup guide</a>
+      </div>
+    </div>
+
+    <!-- One editor, two modes (see js/modules/request-editor.js):
+         • Retry — the host is shown but NOT editable, because a replay is
+           scoped to the instance that captured the request.
+         • New request — the host becomes a picker, since nothing was captured
+           to inherit it from.
+         The ids are still `replay-*` for the same reason the module explains. -->
+    <div
+      id="replay-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Compose or retry a request"
+    >
+      <div class="replay-content">
+        <div class="replay-header">
+          <h3 id="replay-title">↻ Edit &amp; Retry</h3>
+          <span class="replay-host-note">
+            to
+            <code id="replay-host"></code>
+            <select
+              id="replay-instance"
+              class="replay-instance"
+              aria-label="Target instance"
+              style="display: none"
+            ></select>
+          </span>
+
+          <!-- Saved requests. Compose-mode only: picking one replaces every
+               field, which would silently discard the capture you opened Retry
+               to edit. -->
+          <div class="replay-saved" id="replay-saved-group" style="display: none">
+            <select
+              id="replay-saved"
+              class="replay-instance"
+              aria-label="Load a saved request"
+              onchange="loadSavedRequest(this.value)"
+            ></select>
+            <button
+              class="btn btn-ghost btn-icon"
+              id="btn-replay-delete-saved"
+              onclick="deleteSavedRequest()"
+              title="Delete this saved request"
+              aria-label="Delete this saved request"
+            >
+              🗑
+            </button>
+          </div>
+        </div>
+
+        <div class="replay-line">
+          <select id="replay-method" class="replay-method" aria-label="Method"></select>
+          <input
+            type="text"
+            id="replay-path"
+            class="replay-path"
+            aria-label="Path"
+            placeholder="/path?query=1"
+            spellcheck="false"
+          />
+        </div>
+
+        <div class="replay-tabs" role="tablist">
+          <button
+            class="replay-tab"
+            id="replay-tab-headers"
+            role="tab"
+            aria-selected="false"
+            onclick="switchRequestTab('headers')"
+          >
+            Headers
+          </button>
+          <button
+            class="replay-tab active"
+            id="replay-tab-body"
+            role="tab"
+            aria-selected="true"
+            onclick="switchRequestTab('body')"
+          >
+            Body
+          </button>
+          <!-- `{{ name }}` values for the path, headers and body. Resolved
+               server-side just before the request goes out, so a saved request
+               run from the CLI resolves the same way this modal does. -->
+          <button
+            class="replay-tab"
+            id="replay-tab-variables"
+            role="tab"
+            aria-selected="false"
+            onclick="switchRequestTab('variables')"
+          >
+            Variables
+          </button>
+          <!-- What a good response looks like. Checked on every send, and
+               stored with the request when it is saved. -->
+          <button
+            class="replay-tab"
+            id="replay-tab-expect"
+            role="tab"
+            aria-selected="false"
+            onclick="switchRequestTab('expect')"
+          >
+            Expect
+          </button>
+        </div>
+
+        <div class="replay-panes">
+          <div class="replay-pane" id="replay-pane-headers" hidden>
+            <div id="replay-headers-editor" class="replay-editor"></div>
+          </div>
+          <div class="replay-pane" id="replay-pane-body">
+            <div id="replay-body-editor" class="replay-editor"></div>
+          </div>
+          <div class="replay-pane" id="replay-pane-variables" hidden>
+            <div class="replay-vars-bar">
+              <span class="replay-vars-hint">
+                <code>{"name": "value"}</code> — use as <code>{{ name }}</code> in the
+                path, a header or the body.
+              </span>
+              <span class="replay-vars-filters">
+                filters: <code>| encodeURIComponent</code> <code>| encodeURI</code>
+                <code>| base64</code> <code>| json</code> <code>| trim</code>
+                <code>| uppercase</code> <code>| lowercase</code>
+              </span>
+            </div>
+            <div id="replay-variables-editor" class="replay-editor"></div>
+          </div>
+          <!-- The status lives in its own field rather than inside the schema
+               document: the editor below holds plain JSON Schema, which is what
+               you paste out of your API docs and what you want to copy back
+               out. Mixing a status key into it would mean editing every schema
+               on the way in and on the way out. -->
+          <div class="replay-pane" id="replay-pane-expect" hidden>
+            <div class="replay-expect-bar">
+              <label class="replay-expect-status">
+                Expected status
+                <input
+                  type="number"
+                  id="replay-expect-status"
+                  min="100"
+                  max="599"
+                  step="1"
+                  placeholder="any"
+                  aria-label="Expected HTTP status"
+                />
+              </label>
+              <span class="replay-expect-hint"> Leave both empty to check nothing. </span>
+              <!-- The same schema, as a file in `schemas/` — which is what the
+                   CLI's `--schema-file` and CI read. Saving here is what stops
+                   a schema from existing only inside one saved request. -->
+              <select
+                id="replay-expect-file"
+                class="replay-instance"
+                aria-label="Load a schema from the schemas folder"
+                onchange="loadSchemaFile(this.value)"
+              >
+                <option value="">Load from schemas/…</option>
+              </select>
+              <button
+                class="btn btn-ghost btn-icon"
+                id="btn-expect-save-file"
+                onclick="saveSchemaFile()"
+                title="Write this schema to schemas/, for --schema-file and CI"
+                aria-label="Save this schema as a file"
+              >
+                💾
+              </button>
+            </div>
+            <div id="replay-expect-editor" class="replay-editor"></div>
+          </div>
+        </div>
+
+        <div class="replay-error" id="replay-error" role="alert" hidden></div>
+
+        <div class="replay-footer">
+          <span class="replay-hint">
+            The request is sent back through the proxy, so mocks apply.
+          </span>
+          <button
+            class="btn btn-ghost"
+            id="btn-replay-save"
+            onclick="saveCurrentRequest()"
+            title="Keep this request under a name"
+          >
+            💾 Save
+          </button>
+          <button class="btn btn-ghost" onclick="closeRequestEditor()">Cancel</button>
+          <button
+            class="btn btn-primary"
+            id="btn-replay-send"
+            onclick="sendRequestEdit()"
+          >
+            ↻ Send request
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Editor Modal -->
+    <div id="editor-modal" role="dialog" aria-modal="true" aria-label="Mock editor">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="editing-filename" style="margin: 0; font-size: 16px">Edit Mock File</h3>
+          <span style="font-size: 12px; color: var(--text-muted)"
+            >JavaScript · ⌘S to save · Esc to close</span
+          >
+        </div>
+        <div id="code-editor"></div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeEditor()">Discard Changes</button>
+          <button class="btn btn-primary" id="btn-save-mock" onclick="saveMock()">
+            Save &amp; Hot Reload
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirm-modal" role="dialog" aria-modal="true" aria-label="Confirm">
+      <div class="confirm-box">
+        <p id="confirm-message"></p>
+        <div class="confirm-actions">
+          <button class="btn btn-ghost" onclick="resolveConfirm(false)">Cancel</button>
+          <button
+            class="btn btn-danger-text btn-primary"
+            style="background: #7f1d1d; color: #fca5a5; border-color: #7f1d1d"
+            onclick="resolveConfirm(true)"
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Approved Devices Modal -->
+    <!-- Filled as DOM by access.js. The list is small but it is the record of
+         who can read your captured traffic, so it says plainly which entries
+         survive a restart and which don't. -->
+    <div id="clients-modal" role="dialog" aria-modal="true" aria-label="Approved devices">
+      <div class="confirm-box clients-box">
+        <h3 class="scope-title">🔑 Approved devices</h3>
+        <p class="scope-hint">
+          Machines other than this one that may use the admin API — reading captured
+          traffic and changing what gets intercepted. Revoking takes effect on their next
+          request.
+        </p>
+
+        <div id="clients-list" class="clients-list"></div>
+
+        <div class="confirm-actions">
+          <button
+            class="btn btn-ghost btn-danger-text"
+            id="clients-revoke-all"
+            onclick="revokeAllClients()"
+          >
+            Revoke all
+          </button>
+          <button class="btn btn-primary" onclick="closeApprovedClients()">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Prompt Modal -->
+    <!-- Replaces the native prompt(), which blocked the renderer and couldn't
+         validate. `prompt-error` is filled on every keystroke by showPrompt. -->
+    <div id="prompt-modal" role="dialog" aria-modal="true" aria-labelledby="prompt-title">
+      <div class="confirm-box prompt-box">
+        <h3 id="prompt-title" class="scope-title"></h3>
+        <label class="prompt-field">
+          <span id="prompt-label" class="prompt-label"></span>
+          <input type="text" id="prompt-input" spellcheck="false" autocomplete="off" />
+        </label>
+        <p id="prompt-error" class="prompt-error" role="alert"></p>
+        <div class="confirm-actions">
+          <button class="btn btn-ghost" onclick="resolvePrompt(null)">Cancel</button>
+          <button class="btn btn-primary" id="prompt-confirm" onclick="submitPrompt()">
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Access Approval Modal -->
+    <!-- Every value in here comes off the wire from the machine being asked
+         about, so it is filled with textContent from access.js and never
+         interpolated. A user-agent is an ideal place to hide markup. -->
+    <div
+      id="access-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Approve device access"
+    >
+      <div class="confirm-box access-box">
+        <h3 class="access-title">🔔 A device wants to use this proxy</h3>
+        <p class="access-hint">
+          It isn't this machine. Approve it only if you recognise it — the admin API can
+          read every decrypted request and change what gets intercepted.
+        </p>
+
+        <dl class="access-grid">
+          <dt>Address</dt>
+          <dd id="access-ip" class="access-mono"></dd>
+          <dt>Asking for</dt>
+          <dd id="access-path" class="access-mono"></dd>
+          <dt>Identifies as</dt>
+          <dd id="access-ua" class="access-ua"></dd>
+        </dl>
+
+        <p id="access-more" class="access-note"></p>
+
+        <label class="access-remember">
+          <input type="checkbox" id="access-remember" />
+          <span>
+            Remember this address
+            <small
+              >Survives restarts. Addresses get reassigned, so re-check it now and
+              then.</small
+            >
+          </span>
+        </label>
+
+        <p id="access-queue" class="access-note"></p>
+
+        <div class="confirm-actions">
+          <button class="btn btn-ghost" onclick="resolveAccess(false)">Deny</button>
+          <button class="btn btn-primary" onclick="resolveAccess(true)">Allow</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mock Scope Modal -->
+    <div id="scope-modal" role="dialog" aria-modal="true" aria-label="Mock scope">
+      <div class="confirm-box scope-box">
+        <h3 id="scope-title" class="scope-title">🎯 Mock scope</h3>
+        <p class="scope-hint">
+          Choose which servers this mock applies to. Selecting all = applies everywhere.
+        </p>
+        <div id="scope-server-list" class="scope-server-list"></div>
+        <div class="confirm-actions">
+          <button class="btn btn-ghost" onclick="closeScopeModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="saveScope()">Save scope</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Install Guide Modal -->
+    <div
+      id="install-guide-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Certificate install guide"
+    >
+      <div class="guide-modal-content">
+        <div class="guide-modal-header">
+          <div class="guide-modal-header-top">
+            <div>
+              <h2 class="guide-modal-title">🔐 Certificate Install Guide</h2>
+              <p class="guide-modal-subtitle">
+                Configure your device to trust the IR Proxy CA
+              </p>
+            </div>
+            <button
+              class="guide-close-btn"
+              onclick="closeInstallGuide()"
+              aria-label="Close"
+            >
+              ×
+            </button>
+          </div>
+
+          <!-- Proxy settings info -->
+          <div class="guide-proxy-info" id="guide-proxy-info">
+            <h4>📡 Proxy settings</h4>
+            <div class="guide-proxy-row">
+              <span class="pr-label">Server IP</span>
+              <span class="pr-value" id="guide-proxy-ip">—</span>
+            </div>
+            <div class="guide-proxy-row">
+              <span class="pr-label">Port</span>
+              <span class="pr-value" id="guide-proxy-port">8888</span>
+            </div>
+            <div class="guide-proxy-row">
+              <span class="pr-label">Type</span>
+              <span class="pr-value">HTTP (handles HTTP &amp; HTTPS)</span>
+            </div>
+          </div>
+
+          <!-- Platform tabs -->
+          <div class="guide-platform-tabs" role="tablist">
+            <button
+              class="guide-platform-tab"
+              id="guide-tab-macos"
+              onclick="switchGuideTab('macos')"
+              role="tab"
+            >
+              🍎 macOS
+            </button>
+            <button
+              class="guide-platform-tab"
+              id="guide-tab-ios"
+              onclick="switchGuideTab('ios')"
+              role="tab"
+            >
+              📱 iOS
+            </button>
+            <button
+              class="guide-platform-tab"
+              id="guide-tab-android"
+              onclick="switchGuideTab('android')"
+              role="tab"
+            >
+              🤖 Android
+            </button>
+            <button
+              class="guide-platform-tab"
+              id="guide-tab-windows"
+              onclick="switchGuideTab('windows')"
+              role="tab"
+            >
+              🪟 Windows
+            </button>
+          </div>
+        </div>
+
+        <div class="guide-modal-body">
+          <!-- macOS Panel -->
+          <div class="guide-platform-panel" id="guide-panel-macos" role="tabpanel">
+            <div class="guide-download-row">
+              <a
+                class="guide-dl-btn primary"
+                href="/__admin/proxy/ca.pem"
+                download="ir-proxy-ca.pem"
+                >⬇ Download .pem (macOS)</a
+              >
+            </div>
+            <ol class="guide-step-list">
+              <li class="guide-step">
+                <span class="guide-step-num">1</span
+                ><span class="guide-step-text"
+                  >Download <strong>ir-proxy-ca.pem</strong> using the button above.</span
+                >
+              </li>
+              <li class="guide-step">
+                <span class="guide-step-num">2</span
+                ><span class="guide-step-text"
+                  >Double-click the file — <strong>Keychain Access</strong> opens
+                  automatically.</span
+                >
+              </li>
+              <li class="guide-step">
+                <span class="guide-step-num">3</span
+                ><span class="guide-step-text"
+                  >Find <strong>IR Proxy CA</strong> in the list and double-click
+                  it.</span
+                >
+              </li>
+              <li class="guide-step">
+                <span class="guide-step-num">4</span
+                ><span class="guide-step-text"
+                  >Expand the <strong>Trust</strong> section → set
+                  <em>When using this certificate</em> to
+                  <strong>Always Trust</strong>.</span
+                >
+              </li>
+              <li class="guide-step">
+                <span class="guide-step-num">5</span
+                ><span class="guide-step-text"
+                  >Close the window and enter your macOS password when prompted.</span
+                >
+              </li>
+              <li class="guide-step">
+                <span class="guide-step-num">6</span
+                ><span class="guide-step-text"
+                  >Configure your Wi-Fi proxy:
+                  <strong>System Settings → Wi-Fi → Details → Proxies → HTTP Proxy</strong
+                  >. Enter the server IP and port shown above.</span
+                >
+              </li>
+            </ol>
+          </div>
+
+          <!-- iOS Panel -->
+          <div class="guide-platform-panel" id="guide-panel-ios" role="tabpanel">
+            <div class="guide-download-row">
+              <a
+                class="guide-dl-btn primary"
+                href="/__admin/proxy/ca.cer"
+                download="ir-proxy-ca.cer"
+                >⬇ Download .cer (iOS)</a
+              >
+            </div>
+            <div class="guide-warning">
+              ⚠️ Apps with SSL pinning will still reject the proxy certificate even after
+              installation.
+            </div>
+            <ol class="guide-step-list">
+              <li class="guide-step">
+                <span class="guide-step-num">1</span
+                ><span class="guide-step-text"
+                  >On your iPhone/iPad, open <strong>Safari</strong> and navigate to:<br /><code
+                    id="guide-ios-url"
+                    >http://&lt;proxy-ip&gt;/__admin/proxy/ca.cer</code
+                  ></span
+                >
+              </li>
+              <li class="guide-step">
+                <span class="guide-step-num">2</span
+                ><span class="guide-step-text"
+                  >Tap <strong>Allow</strong> when prompted to download a profile.</span
+                >
+              </li>
+              <li class="guide-step">
+                <span class="guide-step-num">3</span
+                ><span class="guide-step-text"
+                  >Go to
+                  <strong>Settings → General → VPN &amp; Device Management</strong> and
+                  tap the <em>IR Proxy CA</em> profile.</span
+                >
+              </li>
+              <li class="guide-step">
+                <span class="guide-step-num">4</span
+                ><span class="guide-step-text"
+                  >Tap <strong>Install</strong> and follow the prompts, entering your
+                  passcode if required.</span
+                >
+              </li>
+              <li class="guide-step">
+                <span class="guide-step-num">5</span
+                ><span class="guide-step-text"
+                  >Go to
+                  <strong>Settings → General → About → Certificate Trust Settings</strong
+                  >.</span
+                >
+              </li>
+              <li class="guide-step">
+                <span class="guide-step-num">6</span
+                ><span class="guide-step-text"
+                  >Toggle <strong>IR Proxy CA</strong> to enable full trust.</span
+                >
+              </li>
+              <li class="guide-step">
+                <span class="guide-step-num">7</span
+                ><span class="guide-step-text"
+                  >Configure proxy:
+                  <strong
+                    >Settings → Wi-Fi → (your network) → Configure Proxy → Manual</strong
+                  >. Enter the server IP and port above.</span
+                >
+              </li>
+            </ol>
+          </div>
+
+          <!-- Android Panel -->
+          <div class="guide-platform-panel" id="guide-panel-android" role="tabpanel">
+            <div class="guide-download-row">
+              <a
+                class="guide-dl-btn primary"
+                href="/__admin/proxy/ca.pem"
+                download="ir-proxy-ca.pem"
+                >⬇ Download CA (.pem)</a
+              >
+              <a
+                class="guide-dl-btn secondary"
+                href="/__admin/proxy/network-security-config"
+                download="network_security_config.xml"
+                >⬇ network_security_config.xml</a
+              >
+            </div>
+            <div class="guide-warning">
+              ⚠️ Apps targeting Android 7+ (API 24+) ignore user-installed CAs by default.
+              You need to add the <code>network_security_config.xml</code> to the app's
+              source code, or root the device.
+            </div>
+            <ol class="guide-step-list">
+              <li class="guide-step">
+                <span class="guide-step-num">1</span
+                ><span class="guide-step-text"
+                  >On your Android device, download <strong>ir-proxy-ca.pem</strong> using
+                  the button above (open this page in the device browser).</span
+                >
+              </li>
+              <li class="guide-step">
+                <span class="guide-step-num">2</span
+                ><span class="guide-step-text"
+                  >Go to
+                  <strong
+                    >Settings → Security → Encryption &amp; Credentials → Install a
+                    Certificate → CA Certificate</strong
+                  >.</span
+                >
+              </li>
+              <li class="guide-step">
+                <span class="guide-step-num">3</span
+                ><span class="guide-step-text"
+                  >Select the downloaded <code>ir-proxy-ca.pem</code> file and confirm the
+                  installation.</span
+                >
+              </li>
+              <li class="guide-step">
+                <span class="guide-step-num">4</span
+                ><span class="guide-step-text"
+                  >Configure proxy:
+                  <strong
+                    >Settings → Wi-Fi → (long-press your network) → Modify Network →
+                    Advanced Options → Proxy → Manual</strong
+                  >.</span
+                >
+              </li>
+              <li class="guide-step">
+                <span class="guide-step-num">5</span
+                ><span class="guide-step-text"
+                  ><strong>For the target app (API 24+):</strong> download
+                  <strong>network_security_config.xml</strong>, place it at
+                  <code>app/src/main/res/xml/network_security_config.xml</code>, and add
+                  <code
+                    >android:networkSecurityConfig="@xml/network_security_config"</code
+                  >
+                  to the <code>&lt;application&gt;</code> tag in
+                  <code>AndroidManifest.xml</code>.</span
+                >
+              </li>
+            </ol>
+          </div>
+
+          <!-- Windows Panel -->
+          <div class="guide-platform-panel" id="guide-panel-windows" role="tabpanel">
+            <div class="guide-download-row">
+              <a
+                class="guide-dl-btn primary"
+                href="/__admin/proxy/ca.pem"
+                download="ir-proxy-ca.pem"
+                >⬇ Download .pem (Windows)</a
+              >
+            </div>
+            <ol class="guide-step-list">
+              <li class="guide-step">
+                <span class="guide-step-num">1</span
+                ><span class="guide-step-text"
+                  >Download <strong>ir-proxy-ca.pem</strong> and rename it to
+                  <code>ir-proxy-ca.crt</code>.</span
+                >
+              </li>
+              <li class="guide-step">
+                <span class="guide-step-num">2</span
+                ><span class="guide-step-text"
+                  >Double-click the <code>.crt</code> file → click
+                  <strong>Install Certificate</strong> → select
+                  <strong>Local Machine</strong>.</span
+                >
+              </li>
+              <li class="guide-step">
+                <span class="guide-step-num">3</span
+                ><span class="guide-step-text"
+                  >Choose <strong>Place all certificates in the following store</strong> →
+                  click <strong>Browse</strong> → select
+                  <strong>Trusted Root Certification Authorities</strong> → OK →
+                  Finish.</span
+                >
+              </li>
+              <li class="guide-step">
+                <span class="guide-step-num">4</span
+                ><span class="guide-step-text"
+                  >Or via <strong>Administrator Command Prompt</strong>:
+                  <pre><code>certutil -addstore root ir-proxy-ca.crt</code></pre>
+                </span>
+              </li>
+              <li class="guide-step">
+                <span class="guide-step-num">5</span
+                ><span class="guide-step-text"
+                  >Configure proxy:
+                  <strong
+                    >Settings → Network &amp; Internet → Proxy → Manual proxy
+                    setup</strong
+                  >. Enter the server IP and port above.</span
+                >
+              </li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Keyboard Shortcuts Modal -->
+    <div
+      id="shortcuts-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Keyboard shortcuts"
+    >
+      <div class="confirm-box shortcuts-box">
+        <h3 class="scope-title">⌨ Keyboard shortcuts</h3>
+        <table class="shortcuts-table">
+          <tbody>
+            <!-- `data-keys` is rendered into <kbd> elements at load, so `mod` and
+                 `alt` read ⌘/⌥ on a Mac and Ctrl/Alt everywhere else. -->
+            <tr>
+              <td data-keys="mod+F or /"></td>
+              <td>
+                Search the panel you're working in — hosts and paths on the left, the open
+                request/response on the right, or the filter of whichever full-pane view
+                is showing (mocks, collections)
+              </td>
+            </tr>
+            <tr>
+              <td data-keys="mod+alt+N"></td>
+              <td>Create a new mock</td>
+            </tr>
+            <tr>
+              <td data-keys="mod+alt+R"></td>
+              <td>Compose a request and send it through the proxy</td>
+            </tr>
+            <tr>
+              <td data-keys="mod+S"></td>
+              <td>Save the open mock (editor)</td>
+            </tr>
+            <tr>
+              <td data-keys="Esc"></td>
+              <td>Close the top-most modal</td>
+            </tr>
+            <tr>
+              <td data-keys="?"></td>
+              <td>Show this help</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="confirm-actions">
+          <button class="btn btn-primary" onclick="closeShortcuts()">Got it</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <script type="module" src="js/dashboard.js"></script>
+  </body>
+</html>

@@ -1,0 +1,29 @@
+name: Escaneo de secretos
+
+# Busca llaves, tokens y certificados en el historial. El proxy captura tráfico
+# real, así que lo que no debe versionarse (mocks, requests, schemas, certs y
+# state.json) está en .gitignore; esto es la red de seguridad por si algo se
+# sube de todos modos.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  gitleaks:
+    name: Gitleaks
+    runs-on: ubuntu-latest
+    # En un pull request la acción lee sus commits y comenta los hallazgos; sin
+    # estos permisos el token por defecto no alcanza y el trabajo falla.
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Historial completo: sin esto solo se revisaría el último commit.
+          fetch-depth: 0
+
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
